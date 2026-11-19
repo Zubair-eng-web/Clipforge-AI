@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+sqlalchemy
+python-multipart
+python-dotenv
+psutil
+google-genai
+faster-whisper
+scenedetect[opencv-headless]
+opencv-python-headless<5
+yt-dlp

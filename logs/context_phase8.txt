@@ -1,0 +1,607 @@
+
+===== backend\main.py =====
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import psutil
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from backend.api.analysis import compat_router as analysis_compat_router
+from backend.api.analysis import router as analysis_router
+from backend.api.autoclips import router as autoclips_router
+from backend.api.captions import router as captions_router
+from backend.api.clips import router as clips_router
+from backend.api.jobs import router as jobs_router
+from backend.api.previews import router as previews_router
+from backend.api.reframe import router as reframe_router
+from backend.api.settings import router as settings_router
+from backend.api.thumbnails import frame_router as thumb_frame_router
+from backend.api.thumbnails import router as thumbnails_router
+from backend.api.youtube import router as youtube_router
+from backend.api.batch import router as batch_router
+from backend.api.editor import clip_router as editor_clip_router
+from backend.api.editor import router as editor_router
+from backend.api.videos import router as videos_router
+from backend.config import STORAGE_DIR, ensure_storage_dirs
+from backend.database.db import get_db, init_db
+from backend.database.models import Clip, Job, Video
+from backend.workers import runner
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_storage_dirs()
+    init_db()
+    runner.start()
+    yield
+    runner.stop()
+
+
+app = FastAPI(title="CLIPFORGE AI", version="0.4.0", lifespan=lifespan)
+
+origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin, "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(videos_router)
+app.include_router(previews_router)
+app.include_router(clips_router)
+app.include_router(jobs_router)
+app.include_router(analysis_router)
+app.include_router(analysis_compat_router)
+app.include_router(captions_router)
+app.include_router(autoclips_router)
+app.include_router(reframe_router)
+app.include_router(settings_router)
+app.include_router(thumb_frame_router)
+app.include_router(thumbnails_router)
+app.include_router(youtube_router)
+app.include_router(batch_router)
+app.include_router(editor_clip_router)
+app.include_router(editor_router)
+
+
+def folder_size(path: Path) -> int:
+    total = 0
+    for dirpath, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, f))
+            except OSError:
+                pass
+    return total
+
+
+@app.get("/api/health")
+def health():
+    mem = psutil.virtual_memory()
+    return {"status": "ok", "app": "CLIPFORGE AI", "ram_used_percent": mem.percent}
+
+
+@app.get("/api/dashboard")
+def dashboard(db: Session = Depends(get_db)):
+    def count(model, *conds):
+        stmt = select(func.count()).select_from(model)
+        if conds:
+            stmt = stmt.where(*conds)
+        return db.scalar(stmt) or 0
+
+    recent_videos = db.scalars(select(Video).order_by(Video.created_at.desc()).limit(5)).all()
+    recent_clips = db.scalars(select(Clip).order_by(Clip.created_at.desc()).limit(5)).all()
+    return {
+        "total_videos": count(Video),
+        "total_clips": count(Clip),
+        "completed_jobs": count(Job, Job.status == "completed"),
+        "processing_jobs": count(Job, Job.status == "processing"),
+        "failed_jobs": count(Job, Job.status == "failed"),
+        "storage_bytes": folder_size(STORAGE_DIR),
+        "recent_videos": [
+            {"id": v.id, "name": v.original_name, "created_at": v.created_at.isoformat()}
+            for v in recent_videos
+        ],
+        "recent_clips": [
+            {"id": c.id, "title": c.title, "created_at": c.created_at.isoformat()}
+            for c in recent_clips
+        ],
+    }
+
+===== backend\database\db.py =====
+import os
+from pathlib import Path
+from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+
+ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = Path(os.getenv("CLIPFORGE_DB_PATH", ROOT / "storage" / "clipforge.db"))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _set_pragmas(dbapi_conn, _record):
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA foreign_keys=ON")
+    cur.close()
+
+
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# create_all() never alters existing tables, so new columns are added here.
+_NEW_COLUMNS = {
+    "videos": {"proxy_path": "VARCHAR(1000)"},
+    "clips": {"thumbnail_path": "VARCHAR(1000)"},
+    "jobs": {"payload": "TEXT"},
+}
+
+
+def _ensure_columns():
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, cols in _NEW_COLUMNS.items():
+            have = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in cols.items():
+                if name not in have:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+
+
+def init_db():
+    from backend.database import models  # noqa: F401
+    Base.metadata.create_all(engine)
+    _ensure_columns()
+
+===== backend\database\models.py =====
+from datetime import datetime, timezone
+from typing import Optional
+from sqlalchemy import ForeignKey, String, Float, Integer, Text, DateTime
+from sqlalchemy.orm import Mapped, mapped_column
+from backend.database.db import Base
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
+class Video(Base):
+    __tablename__ = "videos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    original_name: Mapped[str] = mapped_column(String(500))
+    stored_path: Mapped[str] = mapped_column(String(1000))
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    duration_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    width: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    height: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    format: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="uploaded")
+    proxy_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)  # browser preview copy (Phase 3)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Clip(Base):
+    __tablename__ = "clips"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(500), default="Untitled clip")
+    start_sec: Mapped[float] = mapped_column(Float)
+    end_sec: Mapped[float] = mapped_column(Float)
+    duration_sec: Mapped[float] = mapped_column(Float)
+    width: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    height: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    aspect_ratio: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending")  # pending/processing/ready/failed/cancelled
+    file_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    thumbnail_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    ai_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str] = mapped_column(String(50))
+    video_id: Mapped[Optional[int]] = mapped_column(ForeignKey("videos.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="queued")  # queued/processing/completed/failed/cancelled
+    progress: Mapped[float] = mapped_column(Float, default=0.0)  # percent 0..100
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+
+
+class VideoAnalysis(Base):
+    """Result of the AI analysis of one video (transcript, scenes, highlights as JSON text)."""
+    __tablename__ = "video_analysis"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), unique=True)
+    status: Mapped[str] = mapped_column(String(30), default="none")
+    language: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    transcript_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    scenes_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    highlights_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    scoring_source: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
+class Transcript(Base):
+    __tablename__ = "transcripts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
+    language: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    language_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    duration_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    text: Mapped[str] = mapped_column(Text, default="")
+    segments: Mapped[str] = mapped_column(Text, default="[]")  # JSON list of {start, end, text}
+    model: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Scene(Base):
+    __tablename__ = "scenes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
+    idx: Mapped[int] = mapped_column(Integer)
+    start_sec: Mapped[float] = mapped_column(Float)
+    end_sec: Mapped[float] = mapped_column(Float)
+
+
+class Highlight(Base):
+    __tablename__ = "highlights"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
+    start_sec: Mapped[float] = mapped_column(Float)
+    end_sec: Mapped[float] = mapped_column(Float)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    local_score: Mapped[float] = mapped_column(Float, default=0.0)
+    title: Mapped[str] = mapped_column(String(300), default="")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String(20), default="local")  # local / gemini
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ClipCaption(Base):
+    __tablename__ = "clip_captions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clip_id: Mapped[int] = mapped_column(ForeignKey("clips.id", ondelete="CASCADE"), unique=True, index=True)
+    language: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    lines_json: Mapped[str] = mapped_column(Text, default="[]")  # [{start, end, text, words?}]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class Thumbnail(Base):
+    """A thumbnail made in Thumbnail Studio (file lives in storage/thumbnails/studio_*)."""
+    __tablename__ = "thumbnails"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clip_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clips.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(300), default="")
+    file_path: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+===== backend\workers\runner.py =====
+"""SQLite-backed job queue with background worker threads (default 1 worker for 8GB RAM)."""
+import json
+import logging
+import os
+import threading
+import time
+
+from sqlalchemy import select, update
+
+from backend.database.db import SessionLocal
+from backend.database.models import Clip, Job, utcnow
+
+log = logging.getLogger("clipforge.runner")
+
+HANDLERS = {}
+_stop = threading.Event()
+_threads: list = []
+
+
+class JobCancelled(Exception):
+    pass
+
+
+def register(job_type: str):
+    def deco(fn):
+        HANDLERS[job_type] = fn
+        return fn
+    return deco
+
+
+class JobContext:
+    def __init__(self, job_id: int, payload: dict):
+        self.job_id = job_id
+        self.payload = payload
+        self._t = 0.0
+
+    def progress(self, p: float) -> None:
+        """p is 0.0..1.0. Writes to DB at most once per second and checks for cancellation."""
+        now = time.monotonic()
+        if now - self._t < 1.0 and p < 1.0:
+            return
+        self._t = now
+        with SessionLocal() as db:
+            status = db.scalar(select(Job.status).where(Job.id == self.job_id))
+            if status == "cancelled":
+                raise JobCancelled()
+            db.execute(
+                update(Job)
+                .where(Job.id == self.job_id, Job.status == "processing")
+                .values(progress=round(min(max(p, 0.0), 1.0) * 100, 1), updated_at=utcnow())
+            )
+            db.commit()
+
+
+def _claim():
+    with SessionLocal() as db:
+        row = db.execute(
+            select(Job.id, Job.type, Job.payload).where(Job.status == "queued").order_by(Job.id).limit(1)
+        ).first()
+        if row is None:
+            return None
+        res = db.execute(
+            update(Job).where(Job.id == row.id, Job.status == "queued")
+            .values(status="processing", progress=0.0, updated_at=utcnow())
+        )
+        db.commit()
+        return row if res.rowcount == 1 else None
+
+
+def _finish(job_id: int, status: str, error: str = None) -> None:
+    vals = {"status": status, "updated_at": utcnow()}
+    if status == "completed":
+        vals["progress"] = 100.0
+    if error:
+        vals["error"] = error[:1000]
+    with SessionLocal() as db:
+        db.execute(update(Job).where(Job.id == job_id, Job.status == "processing").values(**vals))
+        db.commit()
+
+
+def _worker(_idx: int) -> None:
+    while not _stop.is_set():
+        try:
+            row = _claim()
+        except Exception:
+            log.exception("could not claim a job")
+            _stop.wait(2)
+            continue
+        if row is None:
+            _stop.wait(0.7)
+            continue
+        handler = HANDLERS.get(row.type)
+        if handler is None:
+            _finish(row.id, "failed", f"Unknown job type: {row.type}")
+            continue
+        try:
+            payload = json.loads(row.payload) if row.payload else {}
+            handler(JobContext(row.id, payload))
+            _finish(row.id, "completed")
+        except JobCancelled:
+            pass  # status already set to cancelled by the API
+        except Exception as e:
+            log.exception("job %s failed", row.id)
+            _finish(row.id, "failed", str(e) or e.__class__.__name__)
+
+
+def _recover_interrupted() -> None:
+    with SessionLocal() as db:
+        db.execute(update(Job).where(Job.status == "processing")
+                   .values(status="failed", error="Interrupted (server restarted)", updated_at=utcnow()))
+        db.execute(update(Clip).where(Clip.status == "processing").values(status="failed"))
+        db.commit()
+
+
+def start() -> None:
+    global _threads
+    from backend.workers import handlers  # noqa: F401  (registers job handlers)
+    from backend.workers import reframe_handlers  # noqa: F401
+    from backend.workers import youtube_handlers  # noqa: F401
+    from backend.workers import editor_handlers  # noqa: F401
+    from backend.workers import batch_handlers  # noqa: F401
+    if any(t.is_alive() for t in _threads):
+        return
+    _recover_interrupted()
+    _stop.clear()
+    n = min(max(int(os.getenv("MAX_CONCURRENT_JOBS", "1") or 1), 1), 4)
+    _threads = [threading.Thread(target=_worker, args=(i,), name=f"clipforge-worker-{i}", daemon=True)
+                for i in range(n)]
+    for t in _threads:
+        t.start()
+
+
+def stop() -> None:
+    _stop.set()
+    for t in _threads:
+        t.join(timeout=5)
+
+===== backend\api\jobs.py =====
+import asyncio
+import json
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
+from backend.database.db import SessionLocal, get_db
+from backend.database.models import Clip, Job, utcnow
+
+router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+TERMINAL = {"completed", "failed", "cancelled"}
+
+
+def job_dict(j: Job) -> dict:
+    return {
+        "id": j.id,
+        "type": j.type,
+        "video_id": j.video_id,
+        "status": j.status,
+        "progress": j.progress,
+        "error": j.error,
+        "created_at": j.created_at.isoformat(),
+        "updated_at": j.updated_at.isoformat(),
+    }
+
+
+@router.get("")
+def list_jobs(status: str = "", limit: int = 50, db: Session = Depends(get_db)):
+    stmt = select(Job)
+    if status:
+        stmt = stmt.where(Job.status == status)
+    rows = db.scalars(stmt.order_by(Job.id.desc()).limit(min(max(limit, 1), 200))).all()
+    return {"items": [job_dict(j) for j in rows]}
+
+
+@router.get("/{job_id}")
+def get_job(job_id: int, db: Session = Depends(get_db)):
+    j = db.get(Job, job_id)
+    if not j:
+        raise HTTPException(404, "Job not found")
+    return job_dict(j)
+
+
+@router.post("/{job_id}/cancel")
+def cancel_job(job_id: int, db: Session = Depends(get_db)):
+    j = db.get(Job, job_id)
+    if not j:
+        raise HTTPException(404, "Job not found")
+    if j.status in TERMINAL:
+        raise HTTPException(409, "Job already finished")
+    try:
+        clip_id = json.loads(j.payload or "{}").get("clip_id")
+    except ValueError:
+        clip_id = None
+    db.execute(
+        update(Job).where(Job.id == job_id, Job.status.in_(["queued", "processing"]))
+        .values(status="cancelled", error="Cancelled by user", updated_at=utcnow())
+    )
+    try:
+        new_clip_id = json.loads(j.payload or "{}").get("new_clip_id")
+    except ValueError:
+        new_clip_id = None
+    if new_clip_id:
+        db.execute(update(Clip).where(Clip.id == new_clip_id, Clip.status.in_(["pending", "processing"]))
+                   .values(status="cancelled"))
+    if clip_id:
+        db.execute(update(Clip).where(Clip.id == clip_id, Clip.status.in_(["pending", "processing"]))
+                   .values(status="cancelled"))
+    db.commit()
+    db.refresh(j)
+    return job_dict(j)
+
+
+@router.get("/{job_id}/events")
+async def job_events(job_id: int, request: Request):
+    """Server-Sent Events: streams job progress until the job finishes."""
+    with SessionLocal() as db:
+        if db.get(Job, job_id) is None:
+            raise HTTPException(404, "Job not found")
+
+    async def gen():
+        last = None
+        last_send = time.monotonic()
+        while True:
+            if await request.is_disconnected():
+                break
+            with SessionLocal() as db:
+                j = db.get(Job, job_id)
+                data = job_dict(j) if j else None
+            if data is None:
+                yield 'data: {"status": "failed", "error": "Job disappeared"}\n\n'
+                break
+            payload = json.dumps(data)
+            if payload != last:
+                yield f"data: {payload}\n\n"
+                last, last_send = payload, time.monotonic()
+            elif time.monotonic() - last_send > 15:
+                yield ": ping\n\n"
+                last_send = time.monotonic()
+            if data["status"] in TERMINAL:
+                break
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+===== backend\config.py =====
+import os
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+STORAGE_DIR = Path(os.getenv("CLIPFORGE_STORAGE_DIR", ROOT / "storage"))
+
+SUBDIRS = [
+    "original_videos", "generated_clips", "edited_clips", "thumbnails", "subtitles",
+    "audio", "projects", "collections", "exports", "temporary",
+]
+
+MEDIA_TYPES = {
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+}
+ALLOWED_EXTENSIONS = set(MEDIA_TYPES)
+
+
+def max_upload_bytes() -> int:
+    return int(float(os.getenv("MAX_UPLOAD_GB", "5")) * 1024**3)
+
+
+def ensure_storage_dirs() -> None:
+    for d in SUBDIRS:
+        (STORAGE_DIR / d).mkdir(parents=True, exist_ok=True)
+
+
+def safe_display_name(name: str) -> str:
+    """Only used for DISPLAY. Files on disk always get random UUID names."""
+    name = os.path.basename(name.replace("\\", "/"))
+    name = re.sub(r'[\x00-\x1f<>:"|?*]', "_", name).strip(" .")
+    return name[:200] or "video"
+
+===== SIDEBAR FILE =====
+E:\CLIPFORGE AI\CLIPFORGE_AI\frontend\app\storage\page.tsx
