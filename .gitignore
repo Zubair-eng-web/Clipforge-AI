@@ -7,4 +7,16 @@ node_modules/
 logs/*.log
 *.db
 storage/*/*
-!storage/*/.gitkeep
+!storage/*/.gitkeep*.db-wal
+*.db-shm
+*.db-journal
+logs/
+_unused/
+_context_dump*.txt
+clipforge_dump.txt
+frontend_dump.txt
+diag_phase4.txt
+README.bak.md
+readme1.md
+scripts/backup_phase4_*/
+scripts/_phase4_patch.py
