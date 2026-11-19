@@ -178,9 +178,37 @@ Edit one clip (trim, speed 0.5-2x, volume/mute, fades, brightness/contrast/satur
 - [x] Troubleshooting docs
 - [ ] Performance tuning from real timings (Whisper speed, RAM during analysis)
 
+### Phase 10: Advanced Scene Detection (category-based clips)
+- [ ] 10.0 Inspect existing code (detector, Gemini client, highlights, clip export, Scene Detection page)
+- [ ] 10.1 Detection engine
+  - [ ] Frame sampling (3-4 small frames per scene, FFmpeg, low RAM)
+  - [ ] Reuse saved transcript and existing PySceneDetect scenes
+  - [ ] Batched Gemini vision classification (6-8 scenes per call, JSON output, retry on 429/503)
+  - [ ] 20 categories + custom category (free text)
+  - [ ] Category-specific rules (fighting vs angry talk, romantic vs friendship/family)
+  - [ ] Confidence score + "uncertain" marking, local keyword fallback when Gemini is unavailable
+  - [ ] Merge consecutive related scenes, avoid duplicates
+  - [ ] Duration logic: Complete Scene (Automatic), fixed 30s-20min, custom (no padding with unrelated footage)
+  - [ ] Unit tests
+- [ ] 10.2 Extraction and storage
+  - [ ] Category folders (storage/generated_clips/fighting, romantic, comedy, ...)
+  - [ ] Descriptive filenames (fighting_scene_001.mp4)
+  - [ ] Reuse clip_export job, verify start/end after export, original never modified
+  - [ ] Duplicate clip guard, manual boundary adjustment API
+  - [ ] Optional subtitles and thumbnails, ZIP export of all categories
+  - [ ] Cancel, retry, temporary file cleanup
+- [ ] 10.3 Scene Detection page
+  - [ ] "Select Which Scenes You Want to Extract" (checkboxes + icons)
+  - [ ] Per-category duration dropdown
+  - [ ] Extra options (min/max duration, confidence threshold, merge, preserve audio, etc.)
+  - [ ] Result cards + timeline, preview, Extract Clip, select all, extract selected
+- [ ] 10.4 Real video test (fighting, romantic, comedy, multiple categories, fixed 1/3 min, custom, complete scene, duplicates, failed AI)
+- [ ] 10.5 README notes + final limitations report
+- [ ] Pending from Phase 9: performance timing test (Whisper base, analyze time, peak RAM)
 ---
 
 ## Changelog
+- 2026-11-20: Phase 10 planned (advanced scene detection, category-based clips). Tasks added to tracker.
 - Phase 1: foundation, DB models, dashboard, sidebar, Gemini client, scripts.
 - Phase 2: upload API with FFprobe validation, path-traversal protection, size limit, library, drag-drop UI. Resumable uploads postponed.
 - Phase 3: FFmpeg service, job runner + SSE, clips API, preview proxy, Manual Clipper, tests.
