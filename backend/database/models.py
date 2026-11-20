@@ -180,3 +180,31 @@ class CategoryScene(Base):
     filename: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     clip_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clips.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MusicTrack(Base):
+    """A track in the local music library (file in storage/music/)."""
+    __tablename__ = "music_tracks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(300))
+    original_name: Mapped[str] = mapped_column(String(500), default="")
+    file_path: Mapped[str] = mapped_column(String(1000))
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    duration_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    folder: Mapped[str] = mapped_column(String(100), default="", index=True)
+    tags: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MusicCollection(Base):
+    __tablename__ = "music_collections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MusicCollectionTrack(Base):
+    __tablename__ = "music_collection_tracks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    collection_id: Mapped[int] = mapped_column(ForeignKey("music_collections.id", ondelete="CASCADE"), index=True)
+    track_id: Mapped[int] = mapped_column(ForeignKey("music_tracks.id", ondelete="CASCADE"), index=True)

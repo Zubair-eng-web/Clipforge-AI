@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Upload, Play, Sparkles, Scissors, ScanLine, Zap, Film,
   Type, Crop, Image as ImageIcon, Layers, FolderKanban, Library, Clapperboard,
-  FolderOpen, History, HardDrive, BarChart3, Settings, type LucideIcon,
+  FolderOpen, History, HardDrive, BarChart3, Settings, Music, Headphones, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { label: string; href: string; icon: LucideIcon };
@@ -22,7 +22,7 @@ export const NAV: NavSection[] = [
       { label: "Smart Captions", href: "/captions", icon: Type },
       { label: "AI Reframing", href: "/reframing", icon: Crop },
       { label: "Thumbnail Studio", href: "/thumbnails", icon: ImageIcon },
-      { label: "Batch Processing", href: "/batch", icon: Layers },
+      { label: "Batch Processing", href: "/batch", icon: Layers }, { label: "Audio Studio", href: "/audio-studio", icon: Headphones },
     ],
   },
   {
@@ -31,7 +31,7 @@ export const NAV: NavSection[] = [
       { label: "My Projects", href: "/projects", icon: FolderKanban },
       { label: "Video Library", href: "/library", icon: Library },
       { label: "Generated Clips", href: "/clips", icon: Clapperboard },
-      { label: "Collections", href: "/collections", icon: FolderOpen },
+      { label: "Collections", href: "/collections", icon: FolderOpen }, { label: "Music Library", href: "/music", icon: Music },
       { label: "History", href: "/history", icon: History },
       { label: "Storage Manager", href: "/storage", icon: HardDrive },
       { label: "AI Analytics", href: "/analytics", icon: BarChart3 },

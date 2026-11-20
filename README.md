@@ -146,6 +146,16 @@ Pipeline (job `scene_classify`, heavy job): PySceneDetect shots (reused) + saved
 - Endpoints: `GET /api/scene-ai/categories`, `POST /api/scene-ai/videos/{id}/run`, `GET /api/scene-ai/videos/{id}/scenes`, `PATCH|DELETE /api/scene-ai/scenes/{id}`, `POST /api/scene-ai/videos/{id}/extract`, `GET /api/scene-ai/videos/{id}/export.zip`.
 - PRIVACY: with "Look at video frames" on, small still frames are sent to Google Gemini. Turn it off to send transcript text only.
 - Limits: accuracy depends on Gemini (no key / 403 / quota = speech keywords only, always `uncertain`). Boundaries are as exact as the analysis unit (12-90 s, aligned to shot cuts), so check "Adjust" for important clips. Very long movies use fewer, longer units. Audio-only sounds (music without picture clues) are judged by frames and dialogue only.
+### Phase 11 Notes: Custom Music and Audio Studio
+Pages: **Music Library** (`/music`) and **Audio Studio** (`/audio-studio`). "Add Music" buttons: Scene Detection cards, Generated Clips, Manual Clipper clip list, Video Editor.
+
+How to use: 1) Music Library: upload your own audio (MP3, WAV, AAC, M4A, FLAC and any FFmpeg format), optionally put it in a folder, add tags (epic, soft, funny...) and collections. 2) Open a clip, press Add Music (or open Audio Studio and pick a clip). 3) Add tracks, set volumes, start, trim, fades, loop. 4) Preview (first 20 s, not saved), then Export MP4 (saved as a NEW clip in `storage/edited_clips/`, also in Generated Clips). Suggest from my library: choose the scene type; only tracks from YOUR library are suggested, you must approve each one.
+
+How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i clip -i music... -filter_complex ... -map 0:v:0 -c:v copy`. The picture is stream-copied: no re-encode, same resolution, frame rate, cuts and length. Only the audio is mixed (original audio at its volume + each music track: trim, loop, fades, delay, volume) with `amix normalize=0`, a safety limiter, padded and cut to the clip length (music never makes the clip longer). Original sound effects are kept unless you turn the original audio off. Codec AAC / MP3 / Opus, 96-320 kbps.
+- Waveforms: 8 kHz mono stream from FFmpeg, ~240 peaks cached in `storage/music/peaks/`. Library files: `storage/music/`.
+- Tables: `music_tracks`, `music_collections`, `music_collection_tracks`. Files: `backend/audio_studio/` (mix.py, waveform.py, suggest.py), `backend/workers/audio_handlers.py`, `backend/api/audio_studio.py`, `frontend/app/music/page.tsx`, `frontend/app/audio-studio/page.tsx`, `frontend/components/Wave.tsx`. Tests: `tests/test_phase11_audio.py` (real video + real audio, checks codec, size, fps, duration, volumes, source untouched).
+- Endpoints: `POST /api/music/upload`, `GET /api/music`, `PATCH|DELETE /api/music/{id}`, `GET /api/music/{id}/stream|waveform`, `GET|POST|DELETE /api/music-collections...`, `POST /api/audio-studio/clips/{id}/mix|preview`, `GET /api/audio-studio/preview/{job_id}`, `POST /api/audio-studio/suggest`. `.env`: `MAX_MUSIC_MB` (default 300).
+- Limits: music file's own copyright is your responsibility (nothing is downloaded). Trim, start and fades are set with numbers and sliders (no drag-and-drop on the timeline). The preview is a short rendered file, not live real-time mixing. Suggestions use track names, folders and tags only (the AI cannot hear the audio), so tag your tracks. A very short or silent source clip stays silent where the original is off and no music plays. Original video with no audio works (music only).
 ---
 
 ## Progress Tracker
@@ -218,34 +228,35 @@ Pipeline (job `scene_classify`, heavy job): PySceneDetect shots (reused) + saved
 - [ ] 10.5 README notes + final limitations report
 - [ ] Pending from Phase 9: performance timing test (Whisper base, analyze time, peak RAM)
 ### Phase 11: Custom Music and Audio Studio
-- [ ] 11.0 Inspect existing code (editor ops/handlers/API, clip export, caption/reframe handlers, clips + manual clipper + editor + scene pages, config, cleanup)
-- [ ] 11.1 Music library (backend)
-  - [ ] Upload MP3, WAV, AAC, M4A, FLAC and any FFmpeg-supported audio (ffprobe check, stored in storage/music/)
-  - [ ] Folders and collections, rename, delete, stream preview, reuse
-  - [ ] Waveform peaks (small JSON, made with FFmpeg, no big RAM)
-- [ ] 11.2 Audio mixing engine (FFmpeg)
-  - [ ] Original volume 0-100%, music volume 0-100%, original ON/OFF, music ON/OFF
-  - [ ] Music start offset, music trim (in/out), fade-in/out, loop when shorter
-  - [ ] Multiple music tracks
-  - [ ] Video stream copied (no re-encode), same resolution, fps and duration; original sound effects kept
-  - [ ] Audio codec and quality settings (AAC / MP3 / Opus, bitrate)
-  - [ ] Job `audio_mix`: progress, cancel, error handling; result is a NEW clip in storage/edited_clips/
-  - [ ] Quick preview render (low quality, short) before final export
-  - [ ] Unit tests with real generated video + audio
-- [ ] 11.3 Music suggestions
-  - [ ] Suggest tracks ONLY from the local library (by category: fighting, romantic, comedy, horror, emotional, ...)
-  - [ ] Gemini text only (track names, tags, mood); local keyword fallback; nothing is downloaded
-  - [ ] User must approve every suggestion
-- [ ] 11.4 UI
-  - [ ] Music Library page (upload, folders, collections, rename, delete, preview)
-  - [ ] Audio Studio page with dark timeline (video, original audio, music tracks, volume, trim, waveform)
-  - [ ] "Add Music" button in Scene Detection, Generated Clips, Manual Clipper and Video Editor
-  - [ ] Reset audio settings, preview, export, save to library
+- [x] 11.0 Inspect existing code (editor ops/handlers/API, clip export, caption/reframe handlers, clips + manual clipper + editor + scene pages, config, cleanup)
+- [x] 11.1 Music library (backend)
+  - [x] Upload MP3, WAV, AAC, M4A, FLAC and any FFmpeg-supported audio (ffprobe check, stored in storage/music/)
+  - [x] Folders and collections, rename, delete, stream preview, reuse
+  - [x] Waveform peaks (small JSON, made with FFmpeg, no big RAM)
+- [x] 11.2 Audio mixing engine (FFmpeg)
+  - [x] Original volume 0-100%, music volume 0-100%, original ON/OFF, music ON/OFF
+  - [x] Music start offset, music trim (in/out), fade-in/out, loop when shorter
+  - [x] Multiple music tracks
+  - [x] Video stream copied (no re-encode), same resolution, fps and duration; original sound effects kept
+  - [x] Audio codec and quality settings (AAC / MP3 / Opus, bitrate)
+  - [x] Job `audio_mix`: progress, cancel, error handling; result is a NEW clip in storage/edited_clips/
+  - [x] Quick preview render (low quality, short) before final export
+  - [x] Unit tests with real generated video + audio
+- [x] 11.3 Music suggestions
+  - [x] Suggest tracks ONLY from the local library (by category: fighting, romantic, comedy, horror, emotional, ...)
+  - [x] Gemini text only (track names, tags, mood); local keyword fallback; nothing is downloaded
+  - [x] User must approve every suggestion
+- [x] 11.4 UI
+  - [x] Music Library page (upload, folders, collections, rename, delete, preview)
+  - [x] Audio Studio page with dark timeline (video, original audio, music tracks, volume, trim, waveform)
+  - [x] "Add Music" button in Scene Detection, Generated Clips, Manual Clipper and Video Editor
+  - [x] Reset audio settings, preview, export, save to library
 - [ ] 11.5 Real test (fighting, romantic, comedy clip + own music; original ON/OFF; mixed; trim; fades; loop; export; playback; old features still work)
 - [ ] 11.6 README (install, usage, testing) + final report (modified files, results, limitations)
 ---
 
 ## Changelog
+- 2026-11-20: Phase 11.1-11.4 code: music library, audio mixing (video copy), suggestions, Audio Studio. Real-clip test pending (11.5).
 - 2026-11-20: Phase 11 planned (Custom Music and Audio Studio). Tasks added to tracker.
 - 2026-11-20: Phase 10.1-10.3 code: category scene detection (Gemini vision, batched), category folders, duplicate guard, ZIP, new Scene Detection page. Real-video test pending (10.4).
 - 2026-11-20: Phase 10 planned (advanced scene detection, category-based clips). Tasks added to tracker.

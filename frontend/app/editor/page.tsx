@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Film, Loader2, Plus, X } from "lucide-react";
-import { API, fmtClock, watchJob, type ClipItem, type JobItem } from "@/lib/api";
+import Link from "next/link"; import { API, fmtClock, watchJob, type ClipItem, type JobItem } from "@/lib/api";
 
 function Slider({ label, value, min, max, step, onChange, disabled, show }: {
   label: string; value: number; min: number; max: number; step: number;
@@ -195,7 +195,7 @@ export default function EditorPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50">
                     {running ? <Loader2 size={16} className="animate-spin" /> : <Film size={16} />} Apply edits
                   </button>
-                  <button onClick={resetOps} disabled={running} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm hover:bg-zinc-700">Reset</button>
+                  <button onClick={resetOps} disabled={running} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm hover:bg-zinc-700">Reset</button>{clipId !== null && <Link href={`/audio-studio?clip=${clipId}`} className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm text-violet-300 hover:bg-zinc-700">Add Music</Link>}
                 </div>
               </div>
             ) : (
@@ -264,7 +264,7 @@ export default function EditorPage() {
               {job && job.status === "completed" && resultId !== null && (
                 <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                   <video key={resultId} controls className="max-h-[60vh] w-full rounded bg-black" src={`${API}/api/clips/${resultId}/stream`} />
-                  <a href={`${API}/api/clips/${resultId}/download`} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"><Download size={15} /> Download</a>
+                  <a href={`${API}/api/clips/${resultId}/download`} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-700"><Download size={15} /> Download</a> <Link href={`/audio-studio?clip=${resultId}`} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-violet-300 hover:bg-zinc-700">Add Music</Link>
                   <p className="mt-2 text-xs text-zinc-500">Also saved in Generated Clips.</p>
                 </div>
               )}

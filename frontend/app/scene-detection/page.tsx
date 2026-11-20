@@ -7,7 +7,7 @@ import {
   Trash2, Users, Wand2, Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { API, fmtClock, watchJob, type VideoItem } from "@/lib/api";
+import Link from "next/link"; import { API, fmtClock, watchJob, type VideoItem } from "@/lib/api";
 
 type SceneRow = { idx: number; start_sec: number; end_sec: number };
 type CatScene = {
@@ -425,7 +425,7 @@ export default function SceneDetectionPage() {
                         <div className="mt-2 text-xs text-green-400">
                           Saved: {s.category}/{s.filename}.mp4 {s.verified === false && <span className="text-amber-300">(length differs from the plan)</span>}
                           <div className="mt-1 flex gap-3"><a className="underline" href={`${API}/api/clips/${s.clip_id}/stream`} target="_blank" rel="noreferrer">Play</a>
-                            <a className="underline" href={`${API}/api/clips/${s.clip_id}/download`}>Download</a></div>
+                            <a className="underline" href={`${API}/api/clips/${s.clip_id}/download`}>Download</a><Link className="underline text-violet-300" href={`/audio-studio?clip=${s.clip_id}&category=${s.category}`}>Add Music</Link></div>
                         </div>
                       )}
                       {(s.clip_status === "pending" || s.clip_status === "processing") && <p className="mt-2 text-xs text-yellow-300">Exporting clip...</p>}

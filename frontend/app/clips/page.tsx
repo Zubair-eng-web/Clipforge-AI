@@ -96,7 +96,7 @@ export default function GeneratedClipsPage() {
                     <button onClick={() => setPreview(c)} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Play">
                       <Play size={15} />
                     </button>
-                    <a href={`${API}/api/clips/${c.id}/download`} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Download">
+                    <Link href={`/audio-studio?clip=${c.id}`} className="rounded-md bg-zinc-800 px-2 py-2 text-xs text-violet-300 hover:bg-zinc-700" title="Add Music">Add Music</Link><a href={`${API}/api/clips/${c.id}/download`} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Download">
                       <Download size={15} />
                     </a>
                   </>

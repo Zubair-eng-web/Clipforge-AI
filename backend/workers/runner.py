@@ -121,6 +121,7 @@ def start() -> None:
     from backend.workers import editor_handlers  # noqa: F401
     from backend.workers import batch_handlers  # noqa: F401
     from backend.workers import scene_handlers  # noqa: F401
+    from backend.workers import audio_handlers  # noqa: F401
     if any(t.is_alive() for t in _threads):
         return
     _recover_interrupted()

@@ -2,7 +2,7 @@
 // CLIPFORGE-PHASE3 manual-clipper
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Scissors, Play, Download, Trash2, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
-import { API, fmtClock, fmtDuration, watchJob, type ClipItem, type VideoItem } from "@/lib/api";
+import Link from "next/link"; import { API, fmtClock, fmtDuration, watchJob, type ClipItem, type VideoItem } from "@/lib/api";
 
 type ProxyState = { state: "none" | "building" | "ready" | "error"; progress: number; message?: string };
 type ExportState = { jobId: number; clipId: number; status: string; progress: number; error: string | null };
@@ -483,7 +483,7 @@ export default function ManualClipperPage() {
                           <button onClick={() => setPlayClip(c)} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Play">
                             <Play size={14} />
                           </button>
-                          <a href={`${API}/api/clips/${c.id}/download`} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Download">
+                          <Link href={`/audio-studio?clip=${c.id}`} className="rounded-md bg-zinc-800 px-2 py-2 text-xs text-violet-300 hover:bg-zinc-700" title="Add Music">Add Music</Link><a href={`${API}/api/clips/${c.id}/download`} className="rounded-md bg-zinc-800 p-2 hover:bg-zinc-700" title="Download">
                             <Download size={14} />
                           </a>
                         </>
