@@ -288,7 +288,7 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
 - [~] 12.3 AI Gaming Highlights page (built, real test pending)
   - [ ] Cards: thumbnail, category, start/end, duration, AI description, confidence
   - [ ] Preview, Extract Clip, multi-select batch extract
-- [ ] 12.4 Captions Studio
+- [x] 12.4 Captions Studio (real burn test passed)
   - [ ] 8 presets (Gaming, Viral Reels, Cinematic, Bold Highlight, Minimal, Word-by-Word, Karaoke, Custom)
   - [ ] Customization (font, size, colors, outline, shadow, position, alignment, line spacing, words per line, timing, animation)
   - [ ] Word-by-word highlight (ASS karaoke), manual correction, language choice (Whisper)
@@ -319,8 +319,15 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
 - Uses `/api/gaming/categories`, `/api/gaming/videos/{id}/run`, `/api/gaming/videos/{id}/highlights`, and `/api/scene-ai/videos/{id}/extract`, `/api/scene-ai/scenes/{id}` (delete).
 - PRIVACY: with "Look at video frames" on, small still frames go to Google Gemini. Off = audio and speech only, scenes stay "uncertain".
 - Limits: Preview needs a browser-playable format (MP4/WebM). Boundaries are as exact as the analysis unit, so check important clips by hand.
+### Phase 12.4 Notes: Captions Studio
+- Page `/captions-studio`. Files: `backend/captions/` (presets.py, builder.py, burn.py, preview.py), `frontend/app/captions-studio/page.tsx`. Tests: `tests/test_phase12_captions_studio.py`, `tests/test_burn_filter_regex.py`.
+- 8 presets, custom style, word-by-word and karaoke (ASS), manual text overlays (gameplay without speech), Whisper language choice.
+- Endpoints: `GET /api/clips/{id}/captions/presets`, `POST .../captions/studio-preview` (JPEG frame), `POST .../captions/studio-burn` (NEW clip), `GET .../captions.srt|.vtt|.ass`.
+- Fix: `has_subtitles_filter()` regex only matched 3-letter flags; FFmpeg 9.x prints 2-letter flags (`..`), so burn was always refused. Now flexible + regression test.
+- Real burn test passed (generated video, overlay, ffprobe on result). Needs FFmpeg with libass.
 ---
 ## Changelog
+- 2026-11-21: Phase 12.4 DONE: fixed libass detection regex (FFmpeg 9.x), real burn test passed. runner.py restored, gaming_classify HEAVY.
 - 2026-11-20: Phase 12.3 code: AI Gaming Highlights page + sidebar link + check script. Real test pending.
 - 2026-11-20: Phase 12.5 DONE (except intro/outro): reels engine (platform presets, limits, audio-energy segment pick, dead-time trim, face/center/blur/manual reframe 1080/720, colour tweak, optional music), job reel_create, /api/reels-studio. Fix: gaming_classify is now a HEAVY job.
 - 2026-11-20: Phase 12.2 DONE (part 3): gaming_classify job, /api/gaming API, gta_ category prefix, tests. Full suite passes. Gaming Highlights page (12.3) next.
@@ -368,7 +375,8 @@ Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Proc
 ## Current Status (update after every step)
 - Done: Phase 1 to 9, 10.1-10.3, 11.1-11.4, 12.0 to 12.2, 12.5 (backend, no intro/outro)
 - Built, test pending: 12.3 AI Gaming Highlights page
-- Next: 12.4 Captions Studio
+- Done: 12.4 Captions Studio
+- Next: 12.6 Reels Studio UI
 - Pending real tests: 9 (performance), 10.4, 11.5 (all in 12.12)
 
 ### Phase 12.5 Notes: Reels and Shorts backend

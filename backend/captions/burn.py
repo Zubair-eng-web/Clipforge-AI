@@ -16,7 +16,7 @@ def has_subtitles_filter() -> bool:
         try:
             r = subprocess.run([_exe(), "-hide_banner", "-filters"], capture_output=True, text=True,
                                encoding="utf-8", errors="replace", timeout=30, creationflags=_NO_WINDOW)
-            _CACHE["v"] = bool(re.search(r"(?m)^\s*[A-Z.]{3}\s+subtitles\s", r.stdout))
+            _CACHE["v"] = bool(re.search(r"(?m)^\s*[A-Z.]+\s+subtitles\s", r.stdout))
         except Exception:
             _CACHE["v"] = False
     return _CACHE["v"]
