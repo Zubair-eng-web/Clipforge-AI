@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Video, Clapperboard, CheckCircle2, Loader2, AlertTriangle, HardDrive, Upload, Sparkles } from "lucide-react";
+import StudioStats from "../components/StudioStats";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -90,6 +91,7 @@ export default function Dashboard() {
 function Panel({ title, empty, items }: { title: string; empty: string; items: string[] }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+<StudioStats />
       <h2 className="mb-3 font-semibold text-white">{title}</h2>
       {items.length === 0 ? (
         <p className="text-sm text-zinc-500">{empty}</p>

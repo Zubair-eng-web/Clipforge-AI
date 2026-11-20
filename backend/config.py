@@ -7,7 +7,7 @@ STORAGE_DIR = Path(os.getenv("CLIPFORGE_STORAGE_DIR", ROOT / "storage"))
 
 SUBDIRS = [
     "original_videos", "generated_clips", "edited_clips", "thumbnails", "subtitles",
-    "audio", "projects", "collections", "exports", "temporary",
+    "audio", "reels", "music", "captions", "projects", "collections", "exports", "temporary",
 ]
 
 MEDIA_TYPES = {

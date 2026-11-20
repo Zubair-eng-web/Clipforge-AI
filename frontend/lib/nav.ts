@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, Upload, Play, Sparkles, Scissors, ScanLine, Zap, Film,
   Type, Crop, Image as ImageIcon, Layers, FolderKanban, Library, Clapperboard,
-  FolderOpen, History, HardDrive, BarChart3, Settings, Music, Headphones, type LucideIcon,
+  FolderOpen, History, HardDrive, BarChart3, Settings, Music, Headphones,
+  Smartphone, ListChecks, Info, Gamepad2, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { label: string; href: string; icon: LucideIcon };
@@ -15,14 +16,18 @@ export const NAV: NavSection[] = [
       { label: "Upload Videos", href: "/upload", icon: Upload },
       { label: "YouTube Import", href: "/youtube-import", icon: Play },
       { label: "AI Auto Clipper", href: "/auto-clipper", icon: Sparkles },
-      { label: "Manual Clipper", href: "/manual-clipper", icon: Scissors },
       { label: "Scene Detection", href: "/scene-detection", icon: ScanLine },
       { label: "AI Highlights", href: "/ai-highlights", icon: Zap },
+      { label: "Gaming Highlights", href: "/gaming-highlights", icon: Gamepad2 },
+      { label: "Reels & Shorts Studio", href: "/reels", icon: Smartphone },
+      { label: "Captions Studio", href: "/captions-studio", icon: Type },
+      { label: "Custom Music Studio", href: "/audio-studio", icon: Headphones },
+      { label: "Manual Video Clipper", href: "/manual-clipper", icon: Scissors },
       { label: "Video Editor", href: "/editor", icon: Film },
-      { label: "Smart Captions", href: "/captions", icon: Type },
       { label: "AI Reframing", href: "/reframing", icon: Crop },
       { label: "Thumbnail Studio", href: "/thumbnails", icon: ImageIcon },
-      { label: "Batch Processing", href: "/batch", icon: Layers }, { label: "Audio Studio", href: "/audio-studio", icon: Headphones },
+      { label: "Batch Processing", href: "/batch", icon: Layers },
+      { label: "Processing Queue", href: "/queue", icon: ListChecks },
     ],
   },
   {
@@ -31,11 +36,14 @@ export const NAV: NavSection[] = [
       { label: "My Projects", href: "/projects", icon: FolderKanban },
       { label: "Video Library", href: "/library", icon: Library },
       { label: "Generated Clips", href: "/clips", icon: Clapperboard },
-      { label: "Collections", href: "/collections", icon: FolderOpen }, { label: "Music Library", href: "/music", icon: Music },
+      { label: "Reels Library", href: "/reels-library", icon: Smartphone },
+      { label: "Collections", href: "/collections", icon: FolderOpen },
+      { label: "Music Library", href: "/music", icon: Music },
       { label: "History", href: "/history", icon: History },
       { label: "Storage Manager", href: "/storage", icon: HardDrive },
-      { label: "AI Analytics", href: "/analytics", icon: BarChart3 },
+      { label: "Analytics", href: "/analytics", icon: BarChart3 },
       { label: "Settings", href: "/settings", icon: Settings },
+      { label: "About CLIPFORGE AI", href: "/about", icon: Info },
     ],
   },
 ];

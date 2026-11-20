@@ -70,3 +70,14 @@ CATEGORIES = {
 def short_label(key: str) -> str:
     label = CATEGORIES.get(key, {}).get("label", key)
     return label.split(" / ")[0].replace(" Scenes", "").replace(" Scene Category", "")
+_orig_short_label = short_label
+
+
+def short_label(key: str) -> str:
+    if key.startswith("gta_"):
+        from backend.gaming.categories import get_categories
+        for c in get_categories():
+            if "gta_" + c["id"] == key:
+                return c["label"].split(" / ")[0]
+        return key[4:].replace("_", " ").title()
+    return _orig_short_label(key)

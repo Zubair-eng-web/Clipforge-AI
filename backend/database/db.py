@@ -53,5 +53,6 @@ def _ensure_columns():
 
 def init_db():
     from backend.database import models  # noqa: F401
+    from backend.database import models_phase12  # noqa: F401
     Base.metadata.create_all(engine)
     _ensure_columns()

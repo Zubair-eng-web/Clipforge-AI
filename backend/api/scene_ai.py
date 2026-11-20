@@ -124,6 +124,8 @@ def list_scenes(video_id: int, category: str = "", db: Session = Depends(get_db)
     stmt = select(CategoryScene).where(CategoryScene.video_id == video_id)
     if category:
         stmt = stmt.where(CategoryScene.category == category)
+    if not category:
+        stmt = stmt.where(~CategoryScene.category.like('gta%'))
     rows = db.scalars(stmt.order_by(CategoryScene.category, CategoryScene.start_sec)).all()
     clips = {c.id: c for c in db.scalars(select(Clip).where(Clip.id.in_([r.clip_id for r in rows if r.clip_id]))).all()} if rows else {}
     info = db.get(Setting, f"scene_ai_info:{video_id}")

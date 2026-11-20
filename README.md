@@ -9,7 +9,7 @@ Local-first AI video clipping and repurposing studio. Runs fully on a Windows PC
 | Frontend | Next.js, React, TypeScript, Tailwind CSS, Lucide Icons |
 | Backend | Python 3.11, FastAPI, Pydantic |
 | Video | FFmpeg, FFprobe, OpenCV (4.x), PySceneDetect, MoviePy |
-| AI | faster-whisper (small, int8), Gemini API (text only), Pyannote (optional, later) |
+| AI | faster-whisper (small, int8), Gemini API (text; small still frames only for Scene Detection / Gaming when 'Look at video frames' is on), Pyannote (optional, later) |
 | Import | yt-dlp (authorized sources only) |
 | Database | SQLite (WAL mode) + SQLAlchemy |
 | Queue | SQLite-backed job queue + Python workers |
@@ -66,6 +66,7 @@ Problems: see `TROUBLESHOOTING.md`.
 - `GEMINI_API_KEY`: used from Phase 4 (verify the model name in Google AI Studio). Without it, local scoring is used.
 - `MAX_CONCURRENT_JOBS`: default 1 (8GB RAM), max 4.
 - Optional: `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `WHISPER_BEAM_SIZE`, `WHISPER_VAD`, `SCENE_THRESHOLD`, `HIGHLIGHT_MAX_CANDIDATES`, `HIGHLIGHT_GEMINI_MAX`, `YOUTUBE_MAX_MINUTES` (default 60), `MAX_UPLOAD_GB` (default 5).
+- Phase 10-11: `SCENE_AI_MAX_UNITS` (default 150), `SCENE_AI_BATCH` (default 8), `MAX_MUSIC_MB` (default 300).
 
 ## Key Rules
 - Original videos are never modified.
@@ -156,8 +157,24 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
 - Tables: `music_tracks`, `music_collections`, `music_collection_tracks`. Files: `backend/audio_studio/` (mix.py, waveform.py, suggest.py), `backend/workers/audio_handlers.py`, `backend/api/audio_studio.py`, `frontend/app/music/page.tsx`, `frontend/app/audio-studio/page.tsx`, `frontend/components/Wave.tsx`. Tests: `tests/test_phase11_audio.py` (real video + real audio, checks codec, size, fps, duration, volumes, source untouched).
 - Endpoints: `POST /api/music/upload`, `GET /api/music`, `PATCH|DELETE /api/music/{id}`, `GET /api/music/{id}/stream|waveform`, `GET|POST|DELETE /api/music-collections...`, `POST /api/audio-studio/clips/{id}/mix|preview`, `GET /api/audio-studio/preview/{job_id}`, `POST /api/audio-studio/suggest`. `.env`: `MAX_MUSIC_MB` (default 300).
 - Limits: music file's own copyright is your responsibility (nothing is downloaded). Trim, start and fades are set with numbers and sliders (no drag-and-drop on the timeline). The preview is a short rendered file, not live real-time mixing. Suggestions use track names, folders and tags only (the AI cannot hear the audio), so tag your tracks. A very short or silent source clip stays silent where the original is off and no music plays. Original video with no audio works (music only).
+### Phase 12.1 Notes: Foundation (storage, DB, sidebar, About, dashboard stats)
+- New storage folders `reels`, `music`, `captions` (plus existing `subtitles`, `projects`, `collections`, `exports`), created at startup by `ensure_storage_dirs()`.
+- New tables `reels`, `caption_styles`, `social_texts` in `backend/database/models_phase12.py` (auto-created by `init_db`).
+- Endpoints: `GET /api/studio/stats` (real counts, storage per folder, recent projects and exports), `GET /api/about`, `GET /api/reels`, `GET|DELETE /api/reels/{id}` (delete only removes files inside `storage/reels` and `storage/thumbnails`).
+- Frontend: new sidebar (`lib/nav.ts`), pages `/about`, `/reels` (placeholder until 12.5/12.6), `/reels-library`, `/queue` (opens History), `components/StudioStats.tsx` on the dashboard (stats + quick actions).
+- Files: `backend/api/studio_stats.py`, `backend/database/models_phase12.py`. Tests: `tests/test_phase12_foundation.py`.
+
 ---
 
+## Phase 12.2 Notes: Gaming intelligence module (`backend/gaming/`)
+- `categories.py`: 25 gaming categories + custom text category (keywords, audio type, hint for Gemini).
+- `signals.py`: audio energy per second via FFmpeg (streamed, low RAM). No audio = no signal.
+- `scoring.py`: vision (Gemini frames) 50% + audio 25% + transcript 25%. Needs at least 2 positive signals to be `detected`, otherwise `uncertain`. No speech = no text signal (no fake data).
+- Rules: police chase needs police cues (else capped, car chase wins); gunfight vs fist fight decided by gun cues.
+- `pipeline.py`: score_units() reuses engine.classify (Gemini frames) + audio energy + transcript. Without Gemini vision a scene is always `uncertain`.
+- Tests: `tests/test_phase12_gaming.py`, `tests/test_phase12_pipeline.py`. `workers/gaming_handlers.py` (job `gaming_classify`), `api/gaming.py`. Gaming scenes are stored in `category_scenes` with category `gta_<id>` (folder `storage/generated_clips/gta_<id>/`), hidden from the Scene Detection page. Thumbnail, adjust, delete and extract reuse `/api/scene-ai/...`.
+- Endpoints: `GET /api/gaming/categories`, `POST /api/gaming/videos/{id}/run`, `GET /api/gaming/videos/{id}/highlights?category=`.
+- Tests: `tests/test_phase12_gaming_job.py`. Real GTA video test comes in 12.12.
 ## Progress Tracker
 
 ### Phase 1: Foundation
@@ -255,7 +272,62 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
 - [ ] 11.6 README (install, usage, testing) + final report (modified files, results, limitations)
 ---
 
+### Phase 12: GTA 6 Gaming Studio (Reels, Captions, Gaming Highlights)
+Goal: Upload GTA 6 video -> AI Scene Detection -> AI Highlights -> Select Scene -> Create Reel -> Add Custom Music -> Generate Captions -> Generate Social Text -> Preview -> Export.
+Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified. No fake dialogue (captions only from real speech or user text). Music only from user's own library. Only process content the user is allowed to use (GTA 6 is copyrighted: follow publisher and platform policies). Test real backend before ticking any box.
+- [x] 12.0 Inspect existing code and write gap list (captions, reframe, editor, thumbnails, batch, dashboard, sidebar, scene_ai categories)
+- [x] 12.1 Foundation
+  - [x] New storage folders: reels, subtitles, captions, projects, collections, exports
+  - [x] New DB tables: reels, caption_styles, social_texts (gaming category fields come in 12.2)
+  - [x] Sidebar update (Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Processing Queue, About CLIPFORGE AI)
+  - [x] About page, dashboard stats (videos, clips, reels, captions, music, jobs, storage, recent projects/exports) + quick actions
+- [x] 12.2 GTA gaming intelligence (code + unit tests; real video test in 12.12)
+  - [x] 25 gaming categories (fighting, shooting, police chase, car chase, crash, explosions, mission, funny, cinematic, stealth, stunts, ... + custom)
+  - [x] Multi-signal scoring: sampled frames + transcript + audio energy (never one frame alone)
+  - [x] Gaming-specific rules (police chase vs car chase, fight vs gunfight) + tests
+- [~] 12.3 AI Gaming Highlights page (built, real test pending)
+  - [ ] Cards: thumbnail, category, start/end, duration, AI description, confidence
+  - [ ] Preview, Extract Clip, multi-select batch extract
+- [ ] 12.4 Captions Studio
+  - [ ] 8 presets (Gaming, Viral Reels, Cinematic, Bold Highlight, Minimal, Word-by-Word, Karaoke, Custom)
+  - [ ] Customization (font, size, colors, outline, shadow, position, alignment, line spacing, words per line, timing, animation)
+  - [ ] Word-by-word highlight (ASS karaoke), manual correction, language choice (Whisper)
+  - [ ] Export SRT, VTT, burned MP4, separate subtitle files; caption preview before export
+  - [ ] Manual text overlays for gameplay without speech
+- [~] 12.5 Reels and Shorts backend (done except intro/outro 12.5b)
+  - [x] Platform presets (YouTube Shorts, Instagram, Facebook, TikTok-compatible), formats 9:16, 1:1, 16:9, 1080x1920
+  - [x] Durations 15/30/45/60/90 s, 3 min, custom (respect platform limits)
+  - [x] AI reel pipeline: most active audio window, dead-time trim, reframe, optional music, thumbnail, MP4 (captions: use Captions Studio on the reel clip)
+  - [x] Manual crop/reposition (cx, cy), start/end change, brightness/contrast/saturation
+  - [ ] Intro/outro (12.5b)
+- [ ] 12.6 Reels Studio UI + Reels Library page
+- [ ] 12.7 Social text generator
+  - [ ] Title, description, caption, hashtags, keywords, CTA, pinned comment
+  - [ ] Tones (viral, funny, cinematic, professional, suspenseful, minimal); text based on real video content; user edits and approves
+- [ ] 12.8 Video Editor upgrade
+  - [ ] Video, audio and caption timelines, multiple audio tracks
+  - [ ] Text overlays, trim, split, clip arrangement, transitions, undo/redo
+- [ ] 12.9 Thumbnail Studio upgrade (AI suggestions, platforms, crop, background effects, PNG/JPG)
+- [ ] 12.10 Batch Processing upgrade (multi-video analyze, highlights, reels, caption style and music for many clips, progress/cancel/retry)
+- [ ] 12.11 Performance (8GB RAM, low-memory sampling, lower-resolution analysis option) + cleanup for new folders
+- [ ] 12.12 Full workflow test (16-point list from spec) + old pending tests (10.4, 11.5) + regression (all old tests pass)
+- [ ] 12.13 README update + final report (modified files, test results, limitations)
+
+### Phase 12.3 Notes: AI Gaming Highlights page
+- Page: `frontend/app/gaming-highlights/page.tsx` (sidebar: AI Gaming Highlights, `/gaming-highlights`). Check script: `.\scripts\check-12-3.ps1`.
+- Flow: pick video -> tick gaming categories (duration per category) -> "Find Gaming Highlights" (job `gaming_classify`, progress shown) -> cards (thumbnail, category, start/end, duration, description, confidence, Detected/Uncertain) -> Preview (plays the range in the player) -> Extract Clip or Select + "Extract selected" -> clips appear in Generated Clips.
+- Uses `/api/gaming/categories`, `/api/gaming/videos/{id}/run`, `/api/gaming/videos/{id}/highlights`, and `/api/scene-ai/videos/{id}/extract`, `/api/scene-ai/scenes/{id}` (delete).
+- PRIVACY: with "Look at video frames" on, small still frames go to Google Gemini. Off = audio and speech only, scenes stay "uncertain".
+- Limits: Preview needs a browser-playable format (MP4/WebM). Boundaries are as exact as the analysis unit, so check important clips by hand.
+---
 ## Changelog
+- 2026-11-20: Phase 12.3 code: AI Gaming Highlights page + sidebar link + check script. Real test pending.
+- 2026-11-20: Phase 12.5 DONE (except intro/outro): reels engine (platform presets, limits, audio-energy segment pick, dead-time trim, face/center/blur/manual reframe 1080/720, colour tweak, optional music), job reel_create, /api/reels-studio. Fix: gaming_classify is now a HEAVY job.
+- 2026-11-20: Phase 12.2 DONE (part 3): gaming_classify job, /api/gaming API, gta_ category prefix, tests. Full suite passes. Gaming Highlights page (12.3) next.
+- 2026-11-20: Phase 12.2 (part 2): gaming pipeline (frames + audio + transcript scoring, reuses scene_ai engine) + tests. Test fix (sine amplitude).
+- 2026-11-20: Phase 12.2 (part 1): backend/gaming module (25 categories, audio signal, multi-signal scoring, police/gun rules) + tests. Wiring to scene_ai engine pending.
+- 2026-11-20: Phase 12.0 + 12.1 done: gap inspect, new storage folders, tables (reels, caption_styles, social_texts), studio stats and About/Reels Library APIs, new sidebar, dashboard stats.
+- 2026-11-20: Phase 12 planned (GTA 6 Gaming Studio: reels, captions studio, gaming highlights, social text). Tasks added to tracker.
 - 2026-11-20: Phase 11.1-11.4 code: music library, audio mixing (video copy), suggestions, Audio Studio. Real-clip test pending (11.5).
 - 2026-11-20: Phase 11 planned (Custom Music and Audio Studio). Tasks added to tracker.
 - 2026-11-20: Phase 10.1-10.3 code: category scene detection (Gemini vision, batched), category folders, duplicate guard, ZIP, new Scene Detection page. Real-video test pending (10.4).
@@ -273,3 +345,35 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
 
 ## Working Method
 Small steps. Each step: code applied with a PowerShell script, tested, logged here. Every finished step gets a Changelog line and a tick in the Progress Tracker.
+
+---
+
+## Added Modules (Phase 10 to 12)
+```text
+backend/
+  scene_ai/        categories.py, engine.py, extract.py        (Phase 10)
+  audio_studio/    mix.py, waveform.py, suggest.py             (Phase 11)
+  gaming/          categories.py, signals.py, scoring.py, pipeline.py   (Phase 12.2)
+  reels/           presets.py, engine.py                       (Phase 12.5)
+  workers/         scene_handlers.py, audio_handlers.py, gaming_handlers.py, reel_handlers.py
+  api/             scene_ai.py, audio_studio.py, gaming.py, reels_studio.py, studio_stats.py
+  database/        models_phase12.py (reels, caption_styles, social_texts)
+frontend/app/      scene-detection, music, audio-studio, about, reels, reels-library, queue, gaming-highlights
+storage/           + music, reels, captions, subtitles, projects, collections, exports
+```
+
+## Sidebar (Phase 12.1 additions)
+Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Processing Queue, About CLIPFORGE AI.
+
+## Current Status (update after every step)
+- Done: Phase 1 to 9, 10.1-10.3, 11.1-11.4, 12.0 to 12.2, 12.5 (backend, no intro/outro)
+- Built, test pending: 12.3 AI Gaming Highlights page
+- Next: 12.4 Captions Studio
+- Pending real tests: 9 (performance), 10.4, 11.5 (all in 12.12)
+
+### Phase 12.5 Notes: Reels and Shorts backend
+- Files: `backend/reels/` (presets.py, engine.py), `backend/workers/reel_handlers.py` (job `reel_create`), `backend/api/reels_studio.py`. Tests: `tests/test_phase12_reels.py` (real generated video, checks size, duration, codec, source untouched).
+- Endpoints: `GET /api/reels-studio/platforms`, `POST /api/reels-studio/create` (clip_id, platform, ratio, size 1080|720, mode face|center|blur|manual, cx, cy, target_sec, start_sec+end_sec, trim_dead_time, brightness, contrast, saturation, music[], original_audio_on, original_volume, title).
+- Flow: ready clip -> segment (longer than target: most active audio window; dead time at start/end trimmed; no audio: first seconds) -> reframe -> ONE x264 encode -> optional music mix (video copied) -> thumbnail. Result is a NEW clip in `storage/edited_clips/` (also in Generated Clips, so Captions Studio and Audio Studio work on it). A row in `reels` is saved when the columns match.
+- Platform limits are in `backend/reels/presets.py` (check the current rules of each platform and edit there). A target above the platform limit is refused.
+- Limits: segment choice uses audio loudness only (no meaning of the scene), so check start/end by hand for important reels. Face mode = fixed crop (no moving camera). Intro/outro not yet. Music only from your own library.

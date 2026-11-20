@@ -160,3 +160,121 @@ def burn(clip_id: int, body: Optional[BurnBody] = None, db: Session = Depends(ge
     db.refresh(new)
     db.refresh(job)
     return {"clip": clip_dict(new), "clip_id": new.id, "job_id": job.id}
+
+# ---------------- Phase 12.4: Captions Studio ----------------
+from typing import Any, Dict, List  # noqa: E402
+
+from fastapi import Response  # noqa: E402
+
+from backend.captions.preview import render_preview  # noqa: E402
+from backend.captions.presets import FONTS, PRESETS, list_presets, to_ass_studio, to_vtt  # noqa: E402
+from backend.services.paths import resolve_storage  # noqa: E402
+from backend.video_processing.ffprobe import probe  # noqa: E402
+
+
+class OverlayIn(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+    start: float = Field(ge=0)
+    end: float = Field(gt=0)
+    position: Literal["top", "center", "bottom"] = "center"
+
+
+class StudioBody(BaseModel):
+    preset: str = "gaming"
+    config: Dict[str, Any] = Field(default_factory=dict)
+    overlays: List[OverlayIn] = Field(default_factory=list, max_length=30)
+
+
+class PreviewBody(StudioBody):
+    t: float = Field(1.0, ge=0)
+
+
+def _studio_dict(body: StudioBody) -> dict:
+    if body.preset not in PRESETS:
+        raise HTTPException(400, f"Unknown preset: {body.preset}")
+    return {"preset": body.preset, "config": body.config, "overlays": [o.model_dump() for o in body.overlays]}
+
+
+def _lines_of(db: Session, clip_id: int) -> list:
+    row = _caption_row(db, clip_id)
+    return json.loads(row.lines_json or "[]") if row is not None else []
+
+
+def _dims(clip: Clip, src) -> tuple:
+    if clip.width and clip.height:
+        return int(clip.width), int(clip.height)
+    info = probe(src)
+    return int(info["width"]), int(info["height"])
+
+
+@router.get("/{clip_id}/captions/presets")
+def studio_presets(clip_id: int, db: Session = Depends(get_db)):
+    _clip_or_404(db, clip_id)
+    return {"presets": list_presets(), "fonts": FONTS}
+
+
+@router.post("/{clip_id}/captions/studio-preview")
+def studio_preview(clip_id: int, body: PreviewBody, db: Session = Depends(get_db)):
+    clip = _ready_clip(db, clip_id)
+    if not has_subtitles_filter():
+        raise HTTPException(400, "This FFmpeg build has no subtitles (libass) support.")
+    studio = _studio_dict(body)
+    src = resolve_storage(clip.file_path)
+    if not src.is_file():
+        raise HTTPException(404, "Clip file is missing on disk")
+    w, h = _dims(clip, src)
+    t = body.t
+    if clip.duration_sec:
+        t = min(t, max(float(clip.duration_sec) - 0.1, 0.0))
+    try:
+        jpg = render_preview(src, to_ass_studio(_lines_of(db, clip_id), w, h, studio), t)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    return Response(jpg, media_type="image/jpeg")
+
+
+@router.post("/{clip_id}/captions/studio-burn")
+def studio_burn(clip_id: int, body: StudioBody, db: Session = Depends(get_db)):
+    clip = _ready_clip(db, clip_id)
+    studio = _studio_dict(body)
+    if not _lines_of(db, clip_id) and not body.overlays:
+        raise HTTPException(400, "No captions and no text overlays. Generate captions or add an overlay first.")
+    if not has_subtitles_filter():
+        raise HTTPException(400, "This FFmpeg build has no subtitles (libass) support. Install a full FFmpeg build.")
+    new = Clip(video_id=clip.video_id, title=f"{clip.title} (captions)"[:200], start_sec=clip.start_sec,
+               end_sec=clip.end_sec, duration_sec=clip.duration_sec, ai_score=clip.ai_score, status="pending")
+    db.add(new)
+    db.flush()
+    job = Job(type="caption_burn", video_id=clip.video_id, status="queued",
+              payload=json.dumps({"clip_id": clip.id, "new_clip_id": new.id, "studio": studio}))
+    db.add(job)
+    db.commit()
+    db.refresh(new)
+    db.refresh(job)
+    return {"clip": clip_dict(new), "clip_id": new.id, "job_id": job.id}
+
+
+@router.get("/{clip_id}/captions.vtt")
+def download_vtt(clip_id: int, db: Session = Depends(get_db)):
+    clip = _clip_or_404(db, clip_id)
+    lines = _lines_of(db, clip_id)
+    if not lines:
+        raise HTTPException(404, "No captions yet. Generate them first.")
+    safe = re.sub(r"[^\w\-. ()]+", "_", clip.title).strip(" .") or "captions"
+    return PlainTextResponse(to_vtt(lines), media_type="text/vtt",
+                             headers={"Content-Disposition": f'attachment; filename="{safe}.vtt"'})
+
+
+@router.get("/{clip_id}/captions.ass")
+def download_ass(clip_id: int, preset: str = "gaming", db: Session = Depends(get_db)):
+    clip = _ready_clip(db, clip_id)
+    lines = _lines_of(db, clip_id)
+    if not lines:
+        raise HTTPException(404, "No captions yet. Generate them first.")
+    if preset not in PRESETS:
+        raise HTTPException(400, f"Unknown preset: {preset}")
+    src = resolve_storage(clip.file_path)
+    w, h = _dims(clip, src)
+    safe = re.sub(r"[^\w\-. ()]+", "_", clip.title).strip(" .") or "captions"
+    return PlainTextResponse(to_ass_studio(lines, w, h, {"preset": preset}), media_type="text/plain",
+                             headers={"Content-Disposition": f'attachment; filename="{safe}.ass"'})

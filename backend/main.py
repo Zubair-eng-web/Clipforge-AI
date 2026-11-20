@@ -34,7 +34,12 @@ from backend.api.storage_manager import router as storage_router
 from backend.api.analytics import router as analytics_router
 from backend.api.diagnostics import router as diagnostics_router
 from backend.api.scene_ai import router as scene_ai_router
+from backend.api.gaming import router as gaming_router
+import backend.workers.gaming_handlers  # noqa: F401
+import backend.workers.reel_handlers  # noqa: F401
+from backend.api.reels_studio import router as reels_studio_router
 from backend.api.audio_studio import mcol_router, music_router, studio_router
+from backend.api.studio_stats import router as phase12_router
 from backend.config import STORAGE_DIR, ensure_storage_dirs
 from backend.database.db import get_db, init_db
 from backend.database.models import Clip, Job, Video
@@ -60,6 +65,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(videos_router)
+app.include_router(gaming_router)
+app.include_router(reels_studio_router)
 app.include_router(previews_router)
 app.include_router(clips_router)
 app.include_router(jobs_router)
@@ -86,6 +93,7 @@ app.include_router(scene_ai_router)
 app.include_router(music_router)
 app.include_router(mcol_router)
 app.include_router(studio_router)
+app.include_router(phase12_router)
 
 
 def folder_size(path: Path) -> int:

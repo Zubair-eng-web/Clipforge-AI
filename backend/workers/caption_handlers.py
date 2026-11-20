@@ -80,13 +80,13 @@ def caption_burn(ctx: JobContext) -> None:
         if src_clip is None or new_clip is None:
             raise RuntimeError("Clip record not found")
         cap = db.scalar(select(ClipCaption).where(ClipCaption.clip_id == src_id))
-        if cap is None or not src_clip.file_path:
+        if (cap is None and not ctx.payload.get("studio")) or not src_clip.file_path:
             new_clip.status = "failed"
             db.commit()
             raise RuntimeError("This clip has no captions yet")
         rel, duration = src_clip.file_path, float(src_clip.duration_sec or 0.0)
         w, h = src_clip.width, src_clip.height
-        lines = json.loads(cap.lines_json or "[]")
+        lines = json.loads(cap.lines_json or "[]") if cap is not None else []
         new_clip.status = "processing"
         db.commit()
 
@@ -106,7 +106,11 @@ def caption_burn(ctx: JobContext) -> None:
     try:
         work.mkdir(parents=True, exist_ok=True)
         ass = work / "captions.ass"
-        ass.write_text(to_ass(lines, int(w), int(h), style, position, font_size=font_size), encoding="utf-8")
+        if ctx.payload.get("studio"):
+            from backend.captions.presets import to_ass_studio
+            ass.write_text(to_ass_studio(lines, int(w), int(h), ctx.payload["studio"]), encoding="utf-8")
+        else:
+            ass.write_text(to_ass(lines, int(w), int(h), style, position, font_size=font_size), encoding="utf-8")
         burn_captions(src, ass, dst, duration, ctx.progress)
         info = probe(dst)
         thumb_ok = True
