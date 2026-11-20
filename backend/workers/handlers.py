@@ -1,4 +1,5 @@
 """Job handlers: clip_export and proxy (browser preview)."""
+import re
 import uuid
 
 from backend import config
@@ -62,7 +63,11 @@ def clip_export(ctx: JobContext) -> None:
         raise RuntimeError("Source video file is missing on disk")
 
     name = uuid.uuid4().hex
-    dst = config.STORAGE_DIR / "generated_clips" / f"{name}.mp4"
+    _cat = re.sub(r"[^a-z0-9_]", "", str(ctx.payload.get("category") or "").lower())
+    _fn = re.sub(r"[^A-Za-z0-9_\-]", "", str(ctx.payload.get("filename") or ""))
+    _rel = f"generated_clips/{_cat}/{_fn}.mp4" if _cat and _fn else f"generated_clips/{name}.mp4"
+    dst = config.STORAGE_DIR / _rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
     thumb = config.STORAGE_DIR / "thumbnails" / f"{name}.jpg"
     try:
         if mode == "fast":
@@ -84,7 +89,7 @@ def clip_export(ctx: JobContext) -> None:
         ok = _set_clip(
             clip_id,
             status="ready",
-            file_path=f"generated_clips/{name}.mp4",
+            file_path=_rel,
             thumbnail_path=f"thumbnails/{name}.jpg" if thumb_ok else None,
             width=info["width"],
             height=info["height"],

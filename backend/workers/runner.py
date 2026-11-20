@@ -5,7 +5,7 @@ import os
 import threading
 import time
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 
 from backend.database.db import SessionLocal
 from backend.database.models import Clip, Job, utcnow
@@ -13,6 +13,7 @@ from backend.database.models import Clip, Job, utcnow
 log = logging.getLogger("clipforge.runner")
 
 HANDLERS = {}
+HEAVY = {"analyze", "batch_video", "youtube_import", "caption_generate", "scene_classify"}  # slow / RAM-hungry jobs
 _stop = threading.Event()
 _threads: list = []
 
@@ -52,10 +53,10 @@ class JobContext:
             db.commit()
 
 
-def _claim():
+def _claim(light_only=False):
     with SessionLocal() as db:
         row = db.execute(
-            select(Job.id, Job.type, Job.payload).where(Job.status == "queued").order_by(Job.id).limit(1)
+            select(Job.id, Job.type, Job.payload).where(Job.status == "queued", *([Job.type.notin_(HEAVY)] if light_only else [])).order_by(case((Job.type.in_(HEAVY), 1), else_=0), Job.id).limit(1)
         ).first()
         if row is None:
             return None
@@ -78,10 +79,10 @@ def _finish(job_id: int, status: str, error: str = None) -> None:
         db.commit()
 
 
-def _worker(_idx: int) -> None:
+def _worker(_idx: int, light_only: bool = False) -> None:
     while not _stop.is_set():
         try:
-            row = _claim()
+            row = _claim(light_only)
         except Exception:
             log.exception("could not claim a job")
             _stop.wait(2)
@@ -119,13 +120,15 @@ def start() -> None:
     from backend.workers import youtube_handlers  # noqa: F401
     from backend.workers import editor_handlers  # noqa: F401
     from backend.workers import batch_handlers  # noqa: F401
+    from backend.workers import scene_handlers  # noqa: F401
     if any(t.is_alive() for t in _threads):
         return
     _recover_interrupted()
     _stop.clear()
     n = min(max(int(os.getenv("MAX_CONCURRENT_JOBS", "1") or 1), 1), 4)
+    _light = os.getenv("LIGHT_WORKER", "1") != "0"
     _threads = [threading.Thread(target=_worker, args=(i,), name=f"clipforge-worker-{i}", daemon=True)
-                for i in range(n)]
+                for i in range(n)] + ([threading.Thread(target=_worker, args=(99, True), name="clipforge-light", daemon=True)] if _light else [])
     for t in _threads:
         t.start()
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import STORAGE_DIR
 from backend.database.db import DB_PATH, get_db
-from backend.database.models import Clip, Thumbnail, Video
+from backend.database.models import CategoryScene, Clip, Thumbnail, Video
 
 router = APIRouter(prefix="/api/storage-manager", tags=["storage"])
 ORPHAN_DIRS = ["generated_clips", "edited_clips", "thumbnails"]
@@ -49,7 +49,7 @@ def _safe_unlink(p: Path) -> int:
 
 def _known_names(db: Session) -> set:
     names = set()
-    for col in (Clip.file_path, Clip.thumbnail_path, Thumbnail.file_path, Video.stored_path, Video.proxy_path):
+    for col in (Clip.file_path, Clip.thumbnail_path, Thumbnail.file_path, Video.stored_path, Video.proxy_path, CategoryScene.thumbnail_path):
         for v in db.scalars(select(col)).all():
             if v:
                 names.add(Path(v).name)

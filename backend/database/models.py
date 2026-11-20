@@ -160,3 +160,23 @@ class CollectionClip(Base):
     collection_id: Mapped[int] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
     clip_id: Mapped[int] = mapped_column(ForeignKey("clips.id", ondelete="CASCADE"), index=True)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CategoryScene(Base):
+    """A scene found by the AI for one category (Scene Detection page)."""
+    __tablename__ = "category_scenes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
+    category: Mapped[str] = mapped_column(String(30), index=True)
+    start_sec: Mapped[float] = mapped_column(Float)
+    end_sec: Mapped[float] = mapped_column(Float)
+    full_start_sec: Mapped[float] = mapped_column(Float)
+    full_end_sec: Mapped[float] = mapped_column(Float)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(20), default="detected")  # detected / uncertain
+    source: Mapped[str] = mapped_column(String(20), default="gemini")    # gemini / local
+    description: Mapped[str] = mapped_column(Text, default="")
+    thumbnail_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    filename: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    clip_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clips.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -90,7 +90,7 @@ export default function YoutubeImportPage() {
           <div className="min-w-0">
             <p className="truncate font-medium text-white">{info.title}</p>
             <p className="text-xs text-zinc-400">
-              {info.uploader ?? "Unknown channel"} | {info.duration ? fmtDuration(info.duration) : "unknown length"} (limit {info.max_minutes} min)
+              {info.uploader ?? "Unknown channel"} | {info.duration ? fmtDuration(info.duration) : "unknown length"} {info.max_minutes < 1000 ? ` (limit ${info.max_minutes} min)` : ""}
             </p>
             <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-zinc-300">
               <input type="checkbox" className="mt-1" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} disabled={running} />

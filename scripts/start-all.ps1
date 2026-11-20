@@ -1,3 +1,5 @@
+﻿& "$PSScriptRoot\stop-all.ps1"
+Start-Sleep -Seconds 2
 $root = Split-Path $PSScriptRoot
 New-Item -ItemType Directory -Force -Path (Join-Path $root "logs") | Out-Null
 

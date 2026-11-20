@@ -33,6 +33,7 @@ from backend.api.library import collections_router, history_router, projects_rou
 from backend.api.storage_manager import router as storage_router
 from backend.api.analytics import router as analytics_router
 from backend.api.diagnostics import router as diagnostics_router
+from backend.api.scene_ai import router as scene_ai_router
 from backend.config import STORAGE_DIR, ensure_storage_dirs
 from backend.database.db import get_db, init_db
 from backend.database.models import Clip, Job, Video
@@ -80,6 +81,7 @@ app.include_router(history_router)
 app.include_router(storage_router)
 app.include_router(analytics_router)
 app.include_router(diagnostics_router)
+app.include_router(scene_ai_router)
 
 
 def folder_size(path: Path) -> int:
