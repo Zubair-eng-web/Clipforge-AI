@@ -134,6 +134,18 @@ Edit one clip (trim, speed 0.5-2x, volume/mute, fades, brightness/contrast/satur
 ### Phase 9: Diagnostics
 `GET /api/diagnostics` and `.\scripts\diagnose.ps1` check FFmpeg, FFprobe, RAM, disk, Gemini key and key Python packages. Tests: `tests/test_phase9_diagnostics.py`
 
+### Phase 10 Notes: Advanced Scene Detection (category clips)
+Scene Detection page: pick categories (20, incl. custom text), set a duration per category (Complete Scene (Automatic), 30 s to 20 min, custom seconds), then Generate Clips. Tick "Preview before extraction" to only find scenes first.
+
+Pipeline (job `scene_classify`, heavy job): PySceneDetect shots (reused) + saved transcript (reused, or transcribed once) -> shots merged into analysis units (about 12-90 s, max `SCENE_AI_MAX_UNITS`=150) -> 3 small frames per unit (FFmpeg, 384 px, in memory) + dialogue -> ONE Gemini call per `SCENE_AI_BATCH`=8 units (retry on 429/503) -> score 0-100 per category -> consecutive positive units become one scene (single weak unit bridged) -> confidence = duration weighted mean -> fixed duration picks the most relevant continuous window (never padded with unrelated footage) -> optional snap to shot cuts -> thumbnails -> clip_export jobs.
+- Folders: `storage/generated_clips/<category>/<category>_scene_001.mp4` (optional `.srt` beside it). Scene thumbnails: `storage/thumbnails/scene_<id>.jpg`.
+- Status: `detected` (confidence >= threshold, Gemini) or `uncertain` (weaker, or speech-keyword fallback). Only `detected` scenes are auto-extracted; uncertain ones can be extracted by hand. "Adjust" edits start/end before extraction.
+- Duplicates: a scene overlapping an already extracted scene of the same category (50% or more) is skipped. After export the clip length is compared with the plan (`verified`).
+- Original video is never changed. Audio is always kept.
+- Files: `backend/scene_ai/` (categories.py, engine.py, extract.py), `backend/workers/scene_handlers.py`, `backend/api/scene_ai.py`, table `category_scenes`, `frontend/app/scene-detection/page.tsx`. Tests: `tests/test_phase10_scene_ai.py` (generates a real video, mocks only the AI call, checks the MP4 files).
+- Endpoints: `GET /api/scene-ai/categories`, `POST /api/scene-ai/videos/{id}/run`, `GET /api/scene-ai/videos/{id}/scenes`, `PATCH|DELETE /api/scene-ai/scenes/{id}`, `POST /api/scene-ai/videos/{id}/extract`, `GET /api/scene-ai/videos/{id}/export.zip`.
+- PRIVACY: with "Look at video frames" on, small still frames are sent to Google Gemini. Turn it off to send transcript text only.
+- Limits: accuracy depends on Gemini (no key / 403 / quota = speech keywords only, always `uncertain`). Boundaries are as exact as the analysis unit (12-90 s, aligned to shot cuts), so check "Adjust" for important clips. Very long movies use fewer, longer units. Audio-only sounds (music without picture clues) are judged by frames and dialogue only.
 ---
 
 ## Progress Tracker
@@ -179,35 +191,63 @@ Edit one clip (trim, speed 0.5-2x, volume/mute, fades, brightness/contrast/satur
 - [ ] Performance tuning from real timings (Whisper speed, RAM during analysis)
 
 ### Phase 10: Advanced Scene Detection (category-based clips)
-- [ ] 10.0 Inspect existing code (detector, Gemini client, highlights, clip export, Scene Detection page)
-- [ ] 10.1 Detection engine
-  - [ ] Frame sampling (3-4 small frames per scene, FFmpeg, low RAM)
-  - [ ] Reuse saved transcript and existing PySceneDetect scenes
-  - [ ] Batched Gemini vision classification (6-8 scenes per call, JSON output, retry on 429/503)
-  - [ ] 20 categories + custom category (free text)
-  - [ ] Category-specific rules (fighting vs angry talk, romantic vs friendship/family)
-  - [ ] Confidence score + "uncertain" marking, local keyword fallback when Gemini is unavailable
-  - [ ] Merge consecutive related scenes, avoid duplicates
-  - [ ] Duration logic: Complete Scene (Automatic), fixed 30s-20min, custom (no padding with unrelated footage)
-  - [ ] Unit tests
-- [ ] 10.2 Extraction and storage
-  - [ ] Category folders (storage/generated_clips/fighting, romantic, comedy, ...)
-  - [ ] Descriptive filenames (fighting_scene_001.mp4)
-  - [ ] Reuse clip_export job, verify start/end after export, original never modified
-  - [ ] Duplicate clip guard, manual boundary adjustment API
-  - [ ] Optional subtitles and thumbnails, ZIP export of all categories
-  - [ ] Cancel, retry, temporary file cleanup
-- [ ] 10.3 Scene Detection page
-  - [ ] "Select Which Scenes You Want to Extract" (checkboxes + icons)
-  - [ ] Per-category duration dropdown
-  - [ ] Extra options (min/max duration, confidence threshold, merge, preserve audio, etc.)
-  - [ ] Result cards + timeline, preview, Extract Clip, select all, extract selected
+- [x] 10.0 Inspect existing code (detector, Gemini client, highlights, clip export, Scene Detection page)
+- [x] 10.1 Detection engine
+  - [x] Frame sampling (3-4 small frames per scene, FFmpeg, low RAM)
+  - [x] Reuse saved transcript and existing PySceneDetect scenes
+  - [x] Batched Gemini vision classification (6-8 scenes per call, JSON output, retry on 429/503)
+  - [x] 20 categories + custom category (free text)
+  - [x] Category-specific rules (fighting vs angry talk, romantic vs friendship/family)
+  - [x] Confidence score + "uncertain" marking, local keyword fallback when Gemini is unavailable
+  - [x] Merge consecutive related scenes, avoid duplicates
+  - [x] Duration logic: Complete Scene (Automatic), fixed 30s-20min, custom (no padding with unrelated footage)
+  - [x] Unit tests
+- [x] 10.2 Extraction and storage
+  - [x] Category folders (storage/generated_clips/fighting, romantic, comedy, ...)
+  - [x] Descriptive filenames (fighting_scene_001.mp4)
+  - [x] Reuse clip_export job, verify start/end after export, original never modified
+  - [x] Duplicate clip guard, manual boundary adjustment API
+  - [x] Optional subtitles and thumbnails, ZIP export of all categories
+  - [x] Cancel, retry, temporary file cleanup
+- [x] 10.3 Scene Detection page
+  - [x] "Select Which Scenes You Want to Extract" (checkboxes + icons)
+  - [x] Per-category duration dropdown
+  - [x] Extra options (min/max duration, confidence threshold, merge, preserve audio, etc.)
+  - [x] Result cards + timeline, preview, Extract Clip, select all, extract selected
 - [ ] 10.4 Real video test (fighting, romantic, comedy, multiple categories, fixed 1/3 min, custom, complete scene, duplicates, failed AI)
 - [ ] 10.5 README notes + final limitations report
 - [ ] Pending from Phase 9: performance timing test (Whisper base, analyze time, peak RAM)
+### Phase 11: Custom Music and Audio Studio
+- [ ] 11.0 Inspect existing code (editor ops/handlers/API, clip export, caption/reframe handlers, clips + manual clipper + editor + scene pages, config, cleanup)
+- [ ] 11.1 Music library (backend)
+  - [ ] Upload MP3, WAV, AAC, M4A, FLAC and any FFmpeg-supported audio (ffprobe check, stored in storage/music/)
+  - [ ] Folders and collections, rename, delete, stream preview, reuse
+  - [ ] Waveform peaks (small JSON, made with FFmpeg, no big RAM)
+- [ ] 11.2 Audio mixing engine (FFmpeg)
+  - [ ] Original volume 0-100%, music volume 0-100%, original ON/OFF, music ON/OFF
+  - [ ] Music start offset, music trim (in/out), fade-in/out, loop when shorter
+  - [ ] Multiple music tracks
+  - [ ] Video stream copied (no re-encode), same resolution, fps and duration; original sound effects kept
+  - [ ] Audio codec and quality settings (AAC / MP3 / Opus, bitrate)
+  - [ ] Job `audio_mix`: progress, cancel, error handling; result is a NEW clip in storage/edited_clips/
+  - [ ] Quick preview render (low quality, short) before final export
+  - [ ] Unit tests with real generated video + audio
+- [ ] 11.3 Music suggestions
+  - [ ] Suggest tracks ONLY from the local library (by category: fighting, romantic, comedy, horror, emotional, ...)
+  - [ ] Gemini text only (track names, tags, mood); local keyword fallback; nothing is downloaded
+  - [ ] User must approve every suggestion
+- [ ] 11.4 UI
+  - [ ] Music Library page (upload, folders, collections, rename, delete, preview)
+  - [ ] Audio Studio page with dark timeline (video, original audio, music tracks, volume, trim, waveform)
+  - [ ] "Add Music" button in Scene Detection, Generated Clips, Manual Clipper and Video Editor
+  - [ ] Reset audio settings, preview, export, save to library
+- [ ] 11.5 Real test (fighting, romantic, comedy clip + own music; original ON/OFF; mixed; trim; fades; loop; export; playback; old features still work)
+- [ ] 11.6 README (install, usage, testing) + final report (modified files, results, limitations)
 ---
 
 ## Changelog
+- 2026-11-20: Phase 11 planned (Custom Music and Audio Studio). Tasks added to tracker.
+- 2026-11-20: Phase 10.1-10.3 code: category scene detection (Gemini vision, batched), category folders, duplicate guard, ZIP, new Scene Detection page. Real-video test pending (10.4).
 - 2026-11-20: Phase 10 planned (advanced scene detection, category-based clips). Tasks added to tracker.
 - Phase 1: foundation, DB models, dashboard, sidebar, Gemini client, scripts.
 - Phase 2: upload API with FFprobe validation, path-traversal protection, size limit, library, drag-drop UI. Resumable uploads postponed.
