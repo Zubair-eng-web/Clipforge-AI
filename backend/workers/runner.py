@@ -13,7 +13,7 @@ from backend.database.models import Clip, Job, utcnow
 log = logging.getLogger("clipforge.runner")
 
 HANDLERS = {}
-HEAVY = {"analyze", "batch_video", "youtube_import", "caption_generate", "scene_classify"}  # slow / RAM-hungry jobs
+HEAVY = {"analyze", "batch_video", "youtube_import", "caption_generate", "scene_classify", "gaming_classify"}  # slow / RAM-hungry jobs
 _stop = threading.Event()
 _threads: list = []
 

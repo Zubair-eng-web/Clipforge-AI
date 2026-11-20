@@ -21,3 +21,11 @@ README.bak.md
 readme1.md
 scripts/backup_phase4_*/
 scripts/_phase4_patch.py
+
+# backups
+*.bak
+*.bak2
+*.bak12
+README.backup.md
+inspect_*.txt
+
