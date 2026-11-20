@@ -300,7 +300,7 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
   - [x] AI reel pipeline: most active audio window, dead-time trim, reframe, optional music, thumbnail, MP4 (captions: use Captions Studio on the reel clip)
   - [x] Manual crop/reposition (cx, cy), start/end change, brightness/contrast/saturation
   - [ ] Intro/outro (12.5b)
-- [ ] 12.6 Reels Studio UI + Reels Library page
+- [x] 12.6 Reels Studio UI (page /reels, real reel test passed)
 - [ ] 12.7 Social text generator
   - [ ] Title, description, caption, hashtags, keywords, CTA, pinned comment
   - [ ] Tones (viral, funny, cinematic, professional, suspenseful, minimal); text based on real video content; user edits and approves
@@ -325,8 +325,14 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
 - Endpoints: `GET /api/clips/{id}/captions/presets`, `POST .../captions/studio-preview` (JPEG frame), `POST .../captions/studio-burn` (NEW clip), `GET .../captions.srt|.vtt|.ass`.
 - Fix: `has_subtitles_filter()` regex only matched 3-letter flags; FFmpeg 9.x prints 2-letter flags (`..`), so burn was always refused. Now flexible + regression test.
 - Real burn test passed (generated video, overlay, ffprobe on result). Needs FFmpeg with libass.
+### Phase 12.6 Notes: Reels Studio UI
+- Page: `frontend/app/reels/page.tsx` (clip, platform, size, length, reframe mode, colour, audio, music from your library) -> `POST /api/reels-studio/create` -> job polling -> preview, download, links to Captions Studio and Audio Studio.
+- Result is a NEW clip (original untouched). Platform limits come from `GET /api/reels-studio/platforms`.
+- Real test: generated 1280x720 video -> Instagram Reels preset at 720 -> ffprobe gave 720x1280.
+
 ---
 ## Changelog
+- 2026-11-21: Phase 12.6 DONE: Reels Studio page, real reel test passed (720x1280).
 - 2026-11-21: Phase 12.4 DONE: fixed libass detection regex (FFmpeg 9.x), real burn test passed. runner.py restored, gaming_classify HEAVY.
 - 2026-11-20: Phase 12.3 code: AI Gaming Highlights page + sidebar link + check script. Real test pending.
 - 2026-11-20: Phase 12.5 DONE (except intro/outro): reels engine (platform presets, limits, audio-energy segment pick, dead-time trim, face/center/blur/manual reframe 1080/720, colour tweak, optional music), job reel_create, /api/reels-studio. Fix: gaming_classify is now a HEAVY job.
@@ -376,7 +382,8 @@ Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Proc
 - Done: Phase 1 to 9, 10.1-10.3, 11.1-11.4, 12.0 to 12.2, 12.5 (backend, no intro/outro)
 - Built, test pending: 12.3 AI Gaming Highlights page
 - Done: 12.4 Captions Studio
-- Next: 12.6 Reels Studio UI
+- Done: 12.6 Reels Studio UI
+- Next: 12.7 Social text generator
 - Pending real tests: 9 (performance), 10.4, 11.5 (all in 12.12)
 
 ### Phase 12.5 Notes: Reels and Shorts backend
