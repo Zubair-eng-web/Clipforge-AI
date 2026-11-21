@@ -42,7 +42,7 @@ def _file(t: Thumbnail):
 
 
 @frame_router.get("/{clip_id}/frame")
-def clip_frame(clip_id: int, t: float = 0.0, db: Session = Depends(get_db)):
+def clip_frame(clip_id: int, t: float = 0.0, size: int = 1280, db: Session = Depends(get_db)):
     """One full-size frame of a ready clip at time t (seconds). Temporary file is removed after sending."""
     clip = db.get(Clip, clip_id)
     if not clip:
@@ -58,7 +58,7 @@ def clip_frame(clip_id: int, t: float = 0.0, db: Session = Depends(get_db)):
     at = min(max(t, 0.0), max((clip.duration_sec or 0.0) - 0.05, 0.0))
     tmp = config.STORAGE_DIR / "temporary" / f"{uuid.uuid4().hex}.jpg"
     try:
-        grab_frame_hd(src, tmp, at)
+        grab_frame_hd(src, tmp, at, min(max(size, 320), 2560))
     except FfmpegError as e:
         tmp.unlink(missing_ok=True)
         raise HTTPException(500, f"Could not read a frame: {e}")
@@ -131,3 +131,41 @@ def delete_thumbnail(thumb_id: int, db: Session = Depends(get_db)):
     db.delete(t)
     db.commit()
     return {"deleted": True, "id": thumb_id}
+
+# ---------------- Phase 12.9: AI suggestions + platform sizes ----------------
+from pydantic import BaseModel, Field  # noqa: E402
+
+from backend.database.models import CategoryScene  # noqa: E402
+from backend.thumbs import suggest as _sg  # noqa: E402
+from backend.video_processing.ffprobe import probe as _probe  # noqa: E402
+
+
+class SuggestIn(BaseModel):
+    clip_id: int
+    count: int = Field(6, ge=1, le=12)
+    use_gemini: bool = True
+
+
+@router.get("/platforms")
+def platforms():
+    return {"platforms": _sg.PLATFORMS}
+
+
+@router.post("/suggest")
+def suggest(body: SuggestIn, db: Session = Depends(get_db)):
+    clip = db.get(Clip, body.clip_id)
+    if not clip:
+        raise HTTPException(404, "Clip not found")
+    if clip.status != "ready" or not clip.file_path:
+        raise HTTPException(409, "The clip is not ready yet")
+    try:
+        src = resolve_storage(clip.file_path)
+    except ValueError:
+        raise HTTPException(400, "Invalid stored path")
+    if not src.is_file():
+        raise HTTPException(404, "Clip file is missing on disk")
+    dur = float(clip.duration_sec or 0.0) or float(_probe(src)["duration_sec"] or 0.0)
+    frames = _sg.suggest_frames(src, dur, body.count)
+    scene = db.scalars(select(CategoryScene).where(CategoryScene.clip_id == clip.id)).first()
+    texts, source, warning = _sg.suggest_texts(clip.title or "", (scene.description if scene else "") or "", body.use_gemini)
+    return {"frames": frames, "texts": texts, "source": source, "warning": warning}

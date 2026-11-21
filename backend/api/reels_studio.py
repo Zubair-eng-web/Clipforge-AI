@@ -24,6 +24,13 @@ class MusicItem(BaseModel):
     loop: bool = True
 
 
+class Card(BaseModel):
+    text: str = Field(..., min_length=1, max_length=80)
+    seconds: float = Field(default=2.0, ge=1, le=5)
+    bg: str = Field(default="#111827", pattern=r"^#[0-9a-fA-F]{6}$")
+    fg: str = Field(default="#ffffff", pattern=r"^#[0-9a-fA-F]{6}$")
+
+
 class ReelBody(BaseModel):
     clip_id: int
     platform: str = "youtube_shorts"
@@ -43,6 +50,8 @@ class ReelBody(BaseModel):
     original_audio_on: bool = True
     original_volume: float = Field(default=1.0, ge=0, le=1)
     title: str = Field(default="", max_length=200)
+    intro: Optional[Card] = None
+    outro: Optional[Card] = None
 
 
 @router.get("/platforms")

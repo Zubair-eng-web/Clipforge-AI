@@ -41,6 +41,7 @@ export default function ReelsLibraryPage() {
       <div className="grid gap-3 md:grid-cols-3">
         {reels?.map((r) => (
           <div key={r.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          {r.status === "ready" && <video controls preload="metadata" poster={`${API}/api/reels/${r.id}/thumbnail`} src={`${API}/api/reels/${r.id}/stream`} className="mx-auto mb-2 max-h-[320px] rounded-lg bg-black" />}
             <div className="font-medium text-zinc-50">{r.title}</div>
             <div className="mt-1 text-xs text-zinc-400">
               {r.platform} | {r.aspect} | {r.width}x{r.height}

@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Upload, Play, Sparkles, Scissors, ScanLine, Zap, Film,
   Type, Crop, Image as ImageIcon, Layers, FolderKanban, Library, Clapperboard,
   FolderOpen, History, HardDrive, BarChart3, Settings, Music, Headphones,
-  Smartphone, ListChecks, Info, Gamepad2, type LucideIcon,
+  Smartphone, ListChecks, Info, Gamepad2, MessageSquareText, KeyRound, Video as VideoIcon, type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { label: string; href: string; icon: LucideIcon };
@@ -20,10 +20,13 @@ export const NAV: NavSection[] = [
       { label: "AI Highlights", href: "/ai-highlights", icon: Zap },
       { label: "Gaming Highlights", href: "/gaming-highlights", icon: Gamepad2 },
       { label: "Reels & Shorts Studio", href: "/reels", icon: Smartphone },
+      { label: "One-Click Reel", href: "/one-click-reel", icon: Smartphone },
       { label: "Captions Studio", href: "/captions-studio", icon: Type },
+      { label: "Social Text", href: "/social-text", icon: MessageSquareText },
       { label: "Custom Music Studio", href: "/audio-studio", icon: Headphones },
       { label: "Manual Video Clipper", href: "/manual-clipper", icon: Scissors },
       { label: "Video Editor", href: "/editor", icon: Film },
+      { label: "Timeline Editor", href: "/timeline-editor", icon: Film },
       { label: "AI Reframing", href: "/reframing", icon: Crop },
       { label: "Thumbnail Studio", href: "/thumbnails", icon: ImageIcon },
       { label: "Batch Processing", href: "/batch", icon: Layers },
@@ -36,6 +39,7 @@ export const NAV: NavSection[] = [
       { label: "My Projects", href: "/projects", icon: FolderKanban },
       { label: "Video Library", href: "/library", icon: Library },
       { label: "Generated Clips", href: "/clips", icon: Clapperboard },
+      { label: "Clips Gallery", href: "/clips-gallery", icon: VideoIcon },
       { label: "Reels Library", href: "/reels-library", icon: Smartphone },
       { label: "Collections", href: "/collections", icon: FolderOpen },
       { label: "Music Library", href: "/music", icon: Music },
@@ -43,7 +47,10 @@ export const NAV: NavSection[] = [
       { label: "Storage Manager", href: "/storage", icon: HardDrive },
       { label: "Analytics", href: "/analytics", icon: BarChart3 },
       { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Gemini API Key", href: "/gemini-key", icon: KeyRound },
+      { label: "Performance", href: "/performance", icon: Zap },
       { label: "About CLIPFORGE AI", href: "/about", icon: Info },
     ],
   },
 ];
+

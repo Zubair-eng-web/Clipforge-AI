@@ -11,3 +11,6 @@ faster-whisper
 scenedetect[opencv-headless]
 opencv-python-headless<5
 yt-dlp
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2

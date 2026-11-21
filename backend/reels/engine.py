@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from backend.audio_studio.mix import mix_audio
+from backend.reels.cards import add_cards
 from backend.reels.presets import SIZES
 from backend.reframing.reframe import compute_crop, detect_face_center
 from backend.video_processing.ffmpeg_service import _exe, _run
@@ -104,7 +105,8 @@ def _eq(brightness, contrast, saturation):
 
 def build_reel(src, dst, *, src_duration, w, h, ratio="9:16", size="1080", mode="face", cx=None, cy=None,
                target_sec=None, trim_dead=True, start=None, end=None, brightness=0.0, contrast=1.0,
-               saturation=1.0, music=None, orig_on=True, orig_volume=1.0, on_progress=None) -> dict:
+               saturation=1.0, music=None, orig_on=True, orig_volume=1.0, on_progress=None,
+               intro=None, outro=None) -> dict:
     """Writes the reel MP4 to dst. cx/cy (0..1) = wanted crop center for mode 'manual'.
     music = list of track dicts (path, tdur, volume, start, trim_in, trim_out, fade_in, fade_out, loop)."""
     src, dst = Path(src), Path(dst)
@@ -150,14 +152,25 @@ def build_reel(src, dst, *, src_duration, w, h, ratio="9:16", size="1080", mode=
         vf = f"crop={cw}:{ch}:{x}:{y},scale={ow}:{oh}:flags=lanczos,setsar=1" + (f",{eq}" if eq else "")
         body = ["-vf", vf, "-map", "0:v:0"]
 
+    cards = [c for c in (intro, outro) if c and str(c.get("text", "")).strip()]
     pre = dst.with_name(dst.stem + "_pre.mp4")
-    enc_dst = pre if music else dst
+    wrapped = dst.with_name(dst.stem + "_cards.mp4")
+    staged = bool(music or cards)
+    total = dur
     try:
-        args = ["-ss", f"{s:.3f}", "-i", str(src), "-t", f"{dur:.3f}", *body, "-map", "0:a:0?", *_ENC, str(enc_dst)]
-        _run(args, dur, prog(0.0, 0.8 if music else 0.97))
+        args = ["-ss", f"{s:.3f}", "-i", str(src), "-t", f"{dur:.3f}", *body, "-map", "0:a:0?", *_ENC,
+                str(pre if staged else dst)]
+        _run(args, dur, prog(0.0, 0.6 if staged else 0.97))
+        cur = pre
+        if cards:
+            cur = wrapped if music else dst
+            total = add_cards(pre, cur, dur, ow, oh, intro, outro, on_progress=prog(0.6, 0.2))
         if music:
-            mix_audio(pre, dst, dur, has_audio(pre), orig_on, orig_volume, music, on_progress=prog(0.8, 0.17))
+            mix_audio(cur, dst, total, has_audio(cur), orig_on, orig_volume, music, on_progress=prog(0.8, 0.17))
     finally:
         pre.unlink(missing_ok=True)
-    return {"start": s, "end": e, "duration": dur, "mode_used": used, "music": bool(music),
+        wrapped.unlink(missing_ok=True)
+    return {"start": s, "end": e, "duration": total, "mode_used": used, "music": bool(music),
+            "intro": bool(intro and str(intro.get("text", "")).strip()),
+            "outro": bool(outro and str(outro.get("text", "")).strip()),
             "width": ow, "height": oh}

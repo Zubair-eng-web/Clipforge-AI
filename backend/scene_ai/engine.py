@@ -55,10 +55,10 @@ def build_units(shots, duration=0.0, target=None):
     return units
 
 
-def grab_jpeg(src, t: float, width: int = 384):
+def grab_jpeg(src, t: float, width: int = 0):
     """One small JPEG frame as bytes (no temp files, tiny RAM)."""
     cmd = [_exe(), "-hide_banner", "-nostdin", "-loglevel", "error", "-ss", f"{max(t, 0.0):.2f}", "-i", str(src),
-           "-frames:v", "1", "-vf", f"scale={width}:-2", "-q:v", "6", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"]
+           "-frames:v", "1", "-vf", f"scale={width or int(os.getenv('FRAME_WIDTH', '384') or 384)}:-2", "-q:v", "6", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"]
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=60, creationflags=_NO_WINDOW)
     except subprocess.TimeoutExpired:

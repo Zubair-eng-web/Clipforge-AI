@@ -1,3 +1,12 @@
+## Overview (for reviewers)
+CLIPFORGE AI is a local-first AI video clipping and repurposing studio that runs fully on a Windows PC (Core i5, 8 GB RAM, CPU only). It turns long videos into short clips and reels: transcription (faster-whisper), scene detection (PySceneDetect), highlight scoring (Gemini API with local fallback), captions, reframing, music mixing, thumbnails and batch processing.
+
+- **Stack:** Python 3.11, FastAPI, SQLAlchemy + SQLite (WAL), FFmpeg/OpenCV, Next.js + React + TypeScript + Tailwind.
+- **Design:** SQLite-backed job queue with workers and SSE progress, RAM-aware (configurable concurrency, low-memory mode), originals never modified.
+- **Quality:** 215 automated tests (pytest), live API audit script, real-video tests.
+- **Legal:** Use only videos and music you have the rights to. No media files are included in this repository. A Gemini API key is needed for AI scoring (set in .env, never committed).
+
+---
 # CLIPFORGE AI
 **Turn Long Videos Into Powerful Clips.**
 
@@ -16,11 +25,11 @@ Local-first AI video clipping and repurposing studio. Runs fully on a Windows PC
 | Progress | Server-Sent Events (SSE) |
 
 ## Sidebar Structure
-**WORKSPACE:** Dashboard, Upload Videos, YouTube Import, AI Auto Clipper, Manual Clipper, Scene Detection, AI Highlights, Video Editor, Smart Captions, AI Reframing, Thumbnail Studio, Batch Processing
+**WORKSPACE:** Dashboard, Upload Videos, YouTube Import, AI Auto Clipper, Manual Clipper, Scene Detection, AI Highlights, AI Gaming Highlights, Reels & Shorts Studio, Captions Studio, Custom Music Studio, Audio Studio, Video Editor, Timeline Editor, Smart Captions, AI Reframing, Thumbnail Studio, Social Text, Batch Processing
 
-**LIBRARY:** My Projects, Video Library, Generated Clips, Collections, History (with queue manager), Storage Manager, AI Analytics, Settings
+**LIBRARY:** My Projects, Video Library, Generated Clips, Clips Gallery, Reels Library, Music Library, Collections, History (with queue manager), Processing Queue, Storage Manager, AI Analytics, Performance, Gemini API Key, Settings, About CLIPFORGE AI (exact order: frontend/lib/nav.ts)
 
-## Project Structure
+## Project Structure (Phase 1-9 base; Phase 10-12 modules are under 'Added Modules' and 'Modules added later in Phase 12')
 ```text
 CLIPFORGE_AI/
   backend/
@@ -215,7 +224,7 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
 - [x] Full test pass
 - [x] Diagnostics endpoint and script
 - [x] Troubleshooting docs
-- [ ] Performance tuning from real timings (Whisper speed, RAM during analysis)
+- [x] Performance tuning from real timings (Low-memory mode, frame size; benchmark in PERFORMANCE_REPORT.md)
 
 ### Phase 10: Advanced Scene Detection (category-based clips)
 - [x] 10.0 Inspect existing code (detector, Gemini client, highlights, clip export, Scene Detection page)
@@ -241,9 +250,9 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
   - [x] Per-category duration dropdown
   - [x] Extra options (min/max duration, confidence threshold, merge, preserve audio, etc.)
   - [x] Result cards + timeline, preview, Extract Clip, select all, extract selected
-- [ ] 10.4 Real video test (fighting, romantic, comedy, multiple categories, fixed 1/3 min, custom, complete scene, duplicates, failed AI)
-- [ ] 10.5 README notes + final limitations report
-- [ ] Pending from Phase 9: performance timing test (Whisper base, analyze time, peak RAM)
+- [x] 10.4 Real video test (2026-11-21: fighting, romantic, custom category, fixed 60 s and 180 s, duplicate guard, one failed Gemini batch handled; extract verified=True)
+- [x] 10.5 README notes + final limitations report (Phase 10 Notes, FINAL_REPORT.md)
+- [x] Phase 9 performance timing test done 2026-11-21 (see Phase 12.12 Update: benchmark)
 ### Phase 11: Custom Music and Audio Studio
 - [x] 11.0 Inspect existing code (editor ops/handlers/API, clip export, caption/reframe handlers, clips + manual clipper + editor + scene pages, config, cleanup)
 - [x] 11.1 Music library (backend)
@@ -268,8 +277,8 @@ How the mix works (job `audio_mix`, a light job, progress + cancel): `ffmpeg -i 
   - [x] Audio Studio page with dark timeline (video, original audio, music tracks, volume, trim, waveform)
   - [x] "Add Music" button in Scene Detection, Generated Clips, Manual Clipper and Video Editor
   - [x] Reset audio settings, preview, export, save to library
-- [ ] 11.5 Real test (fighting, romantic, comedy clip + own music; original ON/OFF; mixed; trim; fades; loop; export; playback; old features still work)
-- [ ] 11.6 README (install, usage, testing) + final report (modified files, results, limitations)
+- [x] 11.5 Real test (API test passed with a generated tone; listen check by user; fighting, romantic, comedy clip + own music; original ON/OFF; mixed; trim; fades; loop; export; playback; old features still work)
+- [x] 11.6 README (install, usage, testing) + final report (Phase 11 Notes, FINAL_REPORT.md)
 ---
 
 ### Phase 12: GTA 6 Gaming Studio (Reels, Captions, Gaming Highlights)
@@ -285,33 +294,33 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
   - [x] 25 gaming categories (fighting, shooting, police chase, car chase, crash, explosions, mission, funny, cinematic, stealth, stunts, ... + custom)
   - [x] Multi-signal scoring: sampled frames + transcript + audio energy (never one frame alone)
   - [x] Gaming-specific rules (police chase vs car chase, fight vs gunfight) + tests
-- [~] 12.3 AI Gaming Highlights page (built, real test pending)
-  - [ ] Cards: thumbnail, category, start/end, duration, AI description, confidence
-  - [ ] Preview, Extract Clip, multi-select batch extract
+- [x] 12.3 AI Gaming Highlights page (API test + browser check by user DONE 2026-11-21)
+  - [x] Cards: thumbnail, category, start/end, duration, AI description, confidence
+  - [x] Preview, Extract Clip, multi-select batch extract
 - [x] 12.4 Captions Studio (real burn test passed)
-  - [ ] 8 presets (Gaming, Viral Reels, Cinematic, Bold Highlight, Minimal, Word-by-Word, Karaoke, Custom)
-  - [ ] Customization (font, size, colors, outline, shadow, position, alignment, line spacing, words per line, timing, animation)
-  - [ ] Word-by-word highlight (ASS karaoke), manual correction, language choice (Whisper)
-  - [ ] Export SRT, VTT, burned MP4, separate subtitle files; caption preview before export
-  - [ ] Manual text overlays for gameplay without speech
-- [~] 12.5 Reels and Shorts backend (done except intro/outro 12.5b)
+  - [x] 8 presets (Gaming, Viral Reels, Cinematic, Bold Highlight, Minimal, Word-by-Word, Karaoke, Custom)
+  - [x] Customization (font, size, colors, outline, shadow, position, alignment, line spacing, words per line, timing, animation)
+  - [x] Word-by-word highlight (ASS karaoke), manual correction, language choice (Whisper)
+  - [x] Export SRT, VTT, burned MP4, separate subtitle files; caption preview before export
+  - [x] Manual text overlays for gameplay without speech
+- [x] 12.5 Reels and Shorts backend
   - [x] Platform presets (YouTube Shorts, Instagram, Facebook, TikTok-compatible), formats 9:16, 1:1, 16:9, 1080x1920
   - [x] Durations 15/30/45/60/90 s, 3 min, custom (respect platform limits)
   - [x] AI reel pipeline: most active audio window, dead-time trim, reframe, optional music, thumbnail, MP4 (captions: use Captions Studio on the reel clip)
   - [x] Manual crop/reposition (cx, cy), start/end change, brightness/contrast/saturation
-  - [ ] Intro/outro (12.5b)
+  - [x] Intro/outro text cards (12.5b)
 - [x] 12.6 Reels Studio UI (page /reels, real reel test passed)
-- [ ] 12.7 Social text generator
-  - [ ] Title, description, caption, hashtags, keywords, CTA, pinned comment
-  - [ ] Tones (viral, funny, cinematic, professional, suspenseful, minimal); text based on real video content; user edits and approves
-- [ ] 12.8 Video Editor upgrade
-  - [ ] Video, audio and caption timelines, multiple audio tracks
-  - [ ] Text overlays, trim, split, clip arrangement, transitions, undo/redo
-- [ ] 12.9 Thumbnail Studio upgrade (AI suggestions, platforms, crop, background effects, PNG/JPG)
-- [ ] 12.10 Batch Processing upgrade (multi-video analyze, highlights, reels, caption style and music for many clips, progress/cancel/retry)
-- [ ] 12.11 Performance (8GB RAM, low-memory sampling, lower-resolution analysis option) + cleanup for new folders
-- [ ] 12.12 Full workflow test (16-point list from spec) + old pending tests (10.4, 11.5) + regression (all old tests pass)
-- [ ] 12.13 README update + final report (modified files, test results, limitations)
+- [x] 12.7 Social text generator
+  - [x] Title, description, caption, hashtags, keywords, CTA, pinned comment
+  - [x] Tones (viral, funny, cinematic, professional, suspenseful, minimal); text based on real video content; user edits and approves
+- [x] 12.8 Video Editor upgrade (a: timeline/split/transitions, b: text overlays + music tracks, c: Timeline Editor page with undo/redo)
+  - [x] Video, audio and caption timelines, multiple audio tracks
+  - [x] Text overlays, trim, split, clip arrangement, transitions, undo/redo
+- [x] 12.9 Thumbnail Studio upgrade (AI suggestions, platforms, crop, background effects, PNG/JPG)
+- [x] 12.10 Batch Processing upgrade (a: multi-video analyze, clips, reels, music, progress/cancel/retry; b: caption preset per clip)
+- [x] 12.11 Performance (low-memory mode, analysis frame size, safe stale-temp cleanup, /performance page)
+- [x] 12.12 Full workflow test (live API run, benchmark, 10.4 retest, speech captions, real music, browser checks all DONE)
+- [x] 12.13 README update + final report (see FINAL_REPORT.md; real tests still pending are listed there and in Known Findings)
 
 ### Phase 12.3 Notes: AI Gaming Highlights page
 - Page: `frontend/app/gaming-highlights/page.tsx` (sidebar: AI Gaming Highlights, `/gaming-highlights`). Check script: `.\scripts\check-12-3.ps1`.
@@ -332,6 +341,37 @@ Rules: upgrade existing CLIPFORGE AI (no new project). Originals never modified.
 
 ---
 ## Changelog
+- 2026-11-21: Autostart verified: Startup shortcut checked/installed. PC on hone par servers hidden start hote hain aur Edge http://localhost:3000 kholta hai.
+- 2026-11-21: 12.3 browser check DONE (user): gaming highlights find, cards, preview, extract all worked. All phases 1 to 13 complete. speech_music_test.py upload field fixed.
+- 2026-11-21: Speech and music real test DONE: one-click chain on a video with real speech: reel 720x1280 PASS, captions 13 lines burned PASS, real mp3 mix PASS (length equal), social text PASS, final clip plays. Test script: scripts\speech_music_test.py (upload field is files, script falls back to newest library video). Still open: browser check of /gaming-highlights.
+- 2026-11-21: Phase 13.3 DONE: full pytest (215 passed in 221.53s (0:03:41)), live audit 119 PASS / 0 FAIL, YouTube publish removed. Remaining optional checks: speaking-video captions, real music listening, /gaming-highlights browser check.
+- 2026-11-21: Publish links removed from pages: clips, clips-gallery, one-click-reel, reels, reels-library (backups in _unused/youtube_publish_removed/).
+- 2026-11-21: YouTube publish REMOVED: backend/publish, api/publish.py, /publish page, YouTubePublish panel, its tests and sidebar link moved to _unused/youtube_publish_removed/. Clips can still be downloaded and uploaded by hand.
+- 2026-11-21: Phase 13.3 step 1: scripts\audit_project.py + scripts\audit.ps1 (README vs disk vs live API, writes AUDIT_REPORT.md), README status synced to Phase 13.
+- 2026-11-21: Reels Library shows videos (poster + player, preload metadata) and every reel has Publish to YouTube. Clips Gallery and Generated Clips (/clips) cards got a Publish button. New backend/api/reels_media.py: GET /api/reels/{id}/stream, /thumbnail, /clip (reel to clip id for Publish).
+- 2026-11-21: Publish panel: two buttons. Publish to YouTube opens 'Publish as Private' and 'Publish as Public'; a confirm box (rights, and a visibility warning for public) replaces the checkboxes and the privacy dropdown. The server still requires confirm (and confirm_public for public).
+- 2026-11-21: Publish button on /reels: every reel result has Publish to YouTube (opens /publish?clip=ID, the clip is pre-selected).
+- 2026-11-21: Publish page /publish added (any ready clip or reel, optional title/hashtag generator, uses the YouTube panel). The panel was only on /one-click-reel before, the old /reels page has no publish button yet.
+- 2026-11-21: Phase 13.2 code: backend/publish/youtube.py, backend/api/publish.py (/api/publish/youtube/...), Publish panel on /one-click-reel (components/YouTubePublish.tsx), tests/test_phase13_publish.py, scripts/test_publish_api.py. 13.1 chain test: reel PASS, music PASS, captions skipped (no speech), social text retest in 13.2 run. Real login and upload pending.
+- 2026-11-21: Phase 13.1 code: One-Click Reel page /one-click-reel (reel, captions, music, social text in one go, chained over the existing APIs, frontend only), scripts\test_one_click_chain.py. Real run pending.
+- 2026-11-21: Autostart added: scripts\autostart.ps1, install-autostart.ps1, disable-autostart.ps1. At Windows login the servers start hidden and Microsoft Edge opens http://localhost:3000.
+- 2026-11-21: Phase 9 benchmark DONE (video 697 s: Whisper 10.3 s with no speech found, scene detection 163 s, highlight scoring 4.2 s; backend peak 530 MB; PC free RAM dropped to 1.0 GB of 7.8 GB). 10.4 retest DONE: fixed 60 s, fixed 180 s, custom, duplicate guard all PASS. Ticked 10.4, 10.5, 11.6.
+- 2026-11-21: Full pytest after Phase 12: 215 passed in 121 s (0 failed, 0 skipped). First full run since Phase 8 (109 passed). No regression.
+- 2026-11-21: Phase 12.13: README cleanup (sidebar, added modules, status), FINAL_REPORT.md, scripts\heavy_tests.ps1 (full pytest, benchmark, 10.4 retest, one by one).
+- 2026-11-21: Phase 12.12b runs 1-4 (video 1, 697 s): live API test via scripts\real_workflow_test.py and scripts\real_scene_cases.py. PASS: analysis, gaming highlights, extract, reel 720x1280, music preview + mix, suggestions, social text, scene detection, duplicate guard, custom category, 22 old endpoints, original untouched. Script bugs fixed (reel size type, music path, platforms dict, suggest category). Video has little speech, so no captions. 10.4 fixed 1/3 min not verified yet.
+- 2026-11-21: Phase 12.12a: benchmark script (scripts/benchmark.py -> PERFORMANCE_REPORT.md) and REAL_TESTS.md checklist added. Real runs pending.
+- 2026-11-21: Phase 12.11 DONE: Performance page (/performance): Low-memory mode, analysis frame size, safe stale-temporary and waveform-cache cleanup, cleanup at server start. Tests: tests/test_phase12_performance.py.
+- 2026-11-21: Reels page: length selector (15/30/45/60/90/180/custom), auto or manual range (start/end with player buttons), several reels from one clip, platform limit warning. Frontend only. Tests: tests/test_phase12_reels_ranges.py.
+- 2026-11-21: Phase 12.10b DONE: batch captions (optional): Whisper words + Captions Studio preset burned into every reel (or clip). No speech = no captions, noted. Tests: tests/test_phase12_batch_captions.py.
+- 2026-11-21: Phase 12.10a DONE: batch pipeline (analyze -> clips -> optional reel + music per clip), POST /api/batch/pipeline, job batch_pipeline, new Batch page (retry, cancel). Tests: tests/test_phase12_batch_pipeline.py.
+- 2026-11-21: README check: fixed broken file names (12.7 and Gemini key notes), ticked 12.8 sub-items. Next: 12.10 Batch upgrade.
+- 2026-11-21: Phase 12.9 DONE: Thumbnail Studio upgrade (AI best-frame suggestions, text ideas, 6 platform sizes, crop/zoom, blurred background, effects, PNG/JPG). Tests: tests/test_phase12_thumbs.py. Old page backup: _unused/thumbnails_page_old.tsx.
+- 2026-11-21: Phase 12.8c DONE: Timeline Editor page (/timeline-editor): video/text/audio tracks, split, transitions, text overlays, music tracks, undo/redo (Ctrl+Z / Ctrl+Y). Frontend only, uses /api/editor/timeline and /api/editor/compose.
+- 2026-11-21: Phase 12.8b DONE (backend): editor compose = text overlays (ASS) + multiple music tracks in one NEW clip, job editor_compose. Tests: tests/test_phase12_compose.py. UI in 12.8c.
+- 2026-11-21: Phase 12.8a DONE (backend): timeline engine (segments + transitions), split, job timeline_clips. Tests: tests/test_phase12_timeline.py. UI comes in 12.8c.
+- 2026-11-21: Phase 12.5b DONE: intro/outro text cards for reels (backend/reels/cards.py, API fields intro/outro, Reels page controls), real tests in tests/test_phase12_reels_cards.py.
+- 2026-11-21: Gemini API Key page (/gemini-key): change the key live from the sidebar, no .env editing. Saved in storage/settings, never shown in full. Test: tests/test_gemini_key_api.py.
+- 2026-11-21: Phase 12.7 DONE: social text API end-to-end test added. Fix: reels row now saves clip_id and aspect (ratio->aspect). README tracker synced (12.4 boxes ticked).
 - 2026-11-21: Phase 12.6 DONE: Reels Studio page, real reel test passed (720x1280).
 - 2026-11-21: Phase 12.4 DONE: fixed libass detection regex (FFmpeg 9.x), real burn test passed. runner.py restored, gaming_classify HEAVY.
 - 2026-11-20: Phase 12.3 code: AI Gaming Highlights page + sidebar link + check script. Real test pending.
@@ -379,12 +419,18 @@ storage/           + music, reels, captions, subtitles, projects, collections, e
 Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Processing Queue, About CLIPFORGE AI.
 
 ## Current Status (update after every step)
-- Done: Phase 1 to 9, 10.1-10.3, 11.1-11.4, 12.0 to 12.2, 12.5 (backend, no intro/outro)
-- Built, test pending: 12.3 AI Gaming Highlights page
+- Done: Phase 1 to 9, 10.1-10.3, 11.1-11.4, 12.0 to 12.2, 12.5 (backend, with intro/outro text cards)
+- Done: 12.3 AI Gaming Highlights page (browser check passed)
 - Done: 12.4 Captions Studio
 - Done: 12.6 Reels Studio UI
-- Next: 12.7 Social text generator
-- Pending real tests: 9 (performance), 10.4, 11.5 (all in 12.12)
+- Done: 12.7 Social text generator (API test added)
+- Done: 12.8 Video Editor upgrade (a, b, c)
+- Done: 12.9 Thumbnail Studio upgrade
+- Done: 12.10a Batch pipeline (clips + reels + music, progress/cancel/retry)
+- Done: 12.10b Batch captions (Whisper + Captions Studio preset per clip/reel)
+- Done: 12.11 Performance (low-memory mode, frame size, safe cleanup)
+- Next: benchmark + 10.4 retest (heavy_tests.ps1), captions test with a speaking video, browser check of /gaming-highlights. 12.13 is done (FINAL_REPORT.md). Full pytest: 215 passed.
+- Pending real tests: none
 
 ### Phase 12.5 Notes: Reels and Shorts backend
 - Files: `backend/reels/` (presets.py, engine.py), `backend/workers/reel_handlers.py` (job `reel_create`), `backend/api/reels_studio.py`. Tests: `tests/test_phase12_reels.py` (real generated video, checks size, duration, codec, source untouched).
@@ -392,3 +438,181 @@ Reels & Shorts Studio, Captions Studio, Custom Music Studio, Reels Library, Proc
 - Flow: ready clip -> segment (longer than target: most active audio window; dead time at start/end trimmed; no audio: first seconds) -> reframe -> ONE x264 encode -> optional music mix (video copied) -> thumbnail. Result is a NEW clip in `storage/edited_clips/` (also in Generated Clips, so Captions Studio and Audio Studio work on it). A row in `reels` is saved when the columns match.
 - Platform limits are in `backend/reels/presets.py` (check the current rules of each platform and edit there). A target above the platform limit is refused.
 - Limits: segment choice uses audio loudness only (no meaning of the scene), so check start/end by hand for important reels. Face mode = fixed crop (no moving camera). Intro/outro not yet. Music only from your own library.
+
+### Phase 12.7 Notes: Social Text Generator
+- Page /social-text. Files: backend/social/generator.py, backend/api/social.py, frontend/app/social-text/page.tsx. Table: social_texts. Tests: tests/test_phase12_social.py, tests/test_phase12_social_api.py.
+- Endpoints: GET /api/social/options, POST /api/social/generate (clip_id, tone, platform, notes), GET /api/social?clip_id=, PUT /api/social/{id} (edit, approve), DELETE /api/social/{id}.
+- Text is built only from the clip title, scene description and real speech. Without a Gemini key a local template is used. PRIVACY: with a key, this text (no video frames) goes to Google Gemini. The user must edit and approve.
+
+
+### Gemini API Key page
+- Page /gemini-key (sidebar: Gemini API Key). Files: backend/api/gemini_key.py, frontend/app/gemini-key/page.tsx. Endpoints: GET /api/gemini-key/status, POST /api/gemini-key, DELETE /api/gemini-key, POST /api/gemini-key/test.
+- A saved key (storage/settings/gemini_key.json) wins over .env and is active at once. Removing it falls back to .env. The full key is never returned by the API.
+
+
+
+### Phase 12.5b Notes: Intro / Outro cards
+- `backend/reels/cards.py`: text card image (Pillow if installed, else OpenCV with ASCII text) -> short MP4 (30 fps, silent audio) -> joined with the reel (one re-encode). Music, if any, is mixed over the full length after the cards are added.
+- API: `intro` and `outro` in `POST /api/reels-studio/create`: `{text (max 80), seconds (1-5), bg (#RRGGBB), fg (#RRGGBB)}`.
+- Limits: text cards only (own image/video intro later). Platform max length is checked on the reel part only, cards add 1-5 s each. Without Pillow, non-English text on the card shows as '?'. Tests: `tests/test_phase12_reels_cards.py`.
+
+### Clips Gallery page
+- Page `/clips-gallery` (sidebar LIBRARY). File: `frontend/app/clips-gallery/page.tsx`. Shows only `ready` clips, 12 at a time, `preload=metadata` (low RAM). A clip whose video cannot load is hidden and can be removed with 'Delete broken'. Delete uses `DELETE /api/clips/{id}`.
+
+
+### Phase 12.8a Notes: Timeline, split, transitions
+- Files: `backend/editor/timeline.py`, `backend/workers/timeline_handlers.py` (job `timeline_clips`), `backend/api/timeline.py`.
+- `POST /api/editor/timeline` (segments [{clip_id,start,end}] max 20, ratio first|9:16|1:1|16:9, transition none|fade|fadeblack|dissolve|wipeleft|slideleft|circleopen, transition_sec 0.2-2). `POST /api/editor/split` (clip_id, at) makes two NEW clips.
+- Result is always a NEW clip, sources untouched, one re-encode, audio crossfades with video, silent segments get silence. Every segment must be at least 2x transition_sec long.
+
+### Phase 12.8b Notes: Text overlays + music tracks in the editor
+- Files: `backend/api/compose.py`, `backend/workers/compose_handlers.py` (job `editor_compose`). Reuses `captions.presets.to_ass_studio` + `burn_captions` and `audio_studio.mix.mix_audio`.
+- `POST /api/editor/compose`: clip_id, overlays [{text, start, end, position}] max 30, style {font, font_size, primary, outline_color, bold, uppercase, animation}, music [{track_id, volume 0-100, start_sec, trim_in, trim_out, fade_in, fade_out, loop}] max 6, original_on, original_volume.
+- Order: overlays burned first (video re-encoded once), then music mixed (video copied). Needs FFmpeg with libass for overlays. Music only from your own library. Result is a NEW clip.
+
+### Phase 12.8c Notes: Timeline Editor page
+- Page `/timeline-editor`, file `frontend/app/timeline-editor/page.tsx` (sidebar: Timeline Editor). The old Video Editor page is unchanged.
+- Step 1: segments (any ready clip, start/end, reorder, split) + transition + output size -> Render timeline (NEW clip). Step 2: choose the clip (the rendered one is auto-selected), add text overlays and music tracks -> Apply text & music (NEW clip).
+- Undo/redo covers all timeline, overlay, music and audio settings (50 steps). Typing inside a text box uses the browser's own undo.
+- Limits: the three tracks are a display, no drag-and-drop (times are typed). No live preview of transitions: render to see them. Overlay and music times are relative to the clip they are applied to.
+
+### Phase 12.9 Notes: Thumbnail Studio upgrade
+- Files: `backend/thumbs/suggest.py`, `backend/api/thumbnails.py` (new routes), `frontend/app/thumbnails/page.tsx`.
+- `POST /api/thumbnails/suggest` (clip_id, count, use_gemini): samples about 14 small frames one at a time, scores them with OpenCV (sharpness, brightness balance, contrast, colour) and returns the best spread-out times. Text ideas come only from the clip title and scene description (Gemini text only, local fallback). `GET /api/thumbnails/platforms`. `GET /api/clips/{id}/frame?t=&size=` (320-2560).
+- Page: platform size, fill or blurred-background fit, zoom + crop position, brightness/contrast/saturation, vignette, shade, font, PNG or JPG. Drawn in the browser canvas.
+- Limits: the score measures image quality, not meaning (it cannot tell a good moment from a nice-looking empty frame). Effects use canvas filters (Chrome/Edge/Firefox). Fonts depend on the PC.
+
+### Phase 12.10a Notes: Batch pipeline (clips + reels + music)
+- Files: `backend/api/batch.py` (new `POST /api/batch/pipeline`, `GET /api/batch/jobs` lists both batch types), `backend/workers/batch_pipeline_handlers.py` (job `batch_pipeline`, HEAVY), `frontend/app/batch/page.tsx`. Tests: `tests/test_phase12_batch_pipeline.py`.
+- Flow per video (one video at a time, RAM safe): analyze if needed -> pick best highlights -> export clips -> optional reel for every clip (platform, size, reframe mode, music from your library) as NEW clips. One job runs all steps in order (it calls the clip_export and reel_create handlers directly, no waiting on the queue).
+- Progress: one bar per video. Cancel: stops after the current step and marks unfinished clips cancelled. Retry: button in the table (`/api/queue/{id}/retry`).
+- Result summary is saved in settings key `batch_result:<job_id>` (clips ready/failed, reels ready/failed, notes).
+- Limits: caption style per clip is not in the batch yet (12.10b): use Captions Studio on the reel clips. If clips export but every reel fails, the job is marked failed and the clips stay (make reels in Reels Studio). The page offers one music track per batch (the API accepts up to 5).
+
+### Phase 12.10b Notes: Batch captions
+- Files: `backend/workers/batch_pipeline_handlers.py` (step 5), `backend/api/batch.py` (fields `captions`, `caption_preset`, `caption_language`), `frontend/app/batch/page.tsx`. Tests: `tests/test_phase12_batch_captions.py` (Whisper is mocked, FFmpeg burn is real, needs libass).
+- Order per video: clips -> reels (optional) -> captions. Captions go on the reel when reels are on, otherwise on the plain clip. Each captioned result is a NEW clip titled "... (captions)"; the clip it came from is kept.
+- Uses the existing `caption_generate` and `caption_burn` handlers with a Captions Studio preset (gaming, viral_reels, cinematic, bold_highlight, minimal, word_by_word, karaoke).
+- Captions never fail the job. No speech or a Whisper/burn error = that clip stays without captions and a note is saved (`captions_skipped`). No libass = captions skipped with a note.
+- Limits: Whisper runs for every clip (slow, needs RAM, keep the batch small on 8GB). A reel with original audio off and only music usually has no speech, so it gets no captions. Only the preset is chosen in the batch; fine tuning is in Captions Studio.
+
+### Reels page: length, range and several reels
+- File: `frontend/app/reels/page.tsx` (backend unchanged, it already had `target_sec`, `start_sec`/`end_sec` and the platform limit check). Test: `tests/test_phase12_reels_ranges.py`.
+- Length: full clip, 15/30/45/60/90/180 s or custom seconds (options above the platform limit are hidden). Range: Auto (most active part) or Manual (start/end sliders, numbers and "= player time" buttons).
+- "Make several reels": the chosen range is cut into equal parts of the chosen length (max 20; a last piece under 3 s is dropped). One `POST /api/reels-studio/create` per part, titles "... - part N", the page follows all jobs and shows every reel.
+- A length or range above the platform limit shows a red message and the button is disabled. Intro/outro seconds are added on top of every reel.
+- Limits: manual range times are relative to the selected clip. Parts run through the normal queue (one after another on 8GB RAM). Dead-time trim applies only to the auto range.
+
+### Phase 12.11 Notes: Performance
+- Files: `backend/services/performance.py`, `backend/api/performance.py`, `frontend/app/performance/page.tsx` (sidebar: Performance), small patches in `backend/main.py` (startup housekeeping + router) and `backend/scene_ai/engine.py` (`grab_jpeg` reads `FRAME_WIDTH`, default 384). Tests: `tests/test_phase12_performance.py`.
+- Settings are saved in `storage/settings/performance.json` and applied to the running server at once (Whisper, Gemini batches and frame size read their env values on every call). Turning a setting off restores what `.env` had.
+- Low-memory mode: `WHISPER_MODEL=base`, `WHISPER_BEAM_SIZE=1`, `SCENE_AI_BATCH=4`, `SCENE_AI_MAX_UNITS=80`, `FRAME_WIDTH=256`. Frame size can also be set alone (256/320/384/512); it affects Scene Detection and Gaming Highlights (both use `engine.grab_jpeg`).
+- Cleanup: `GET /api/performance`, `POST /api/performance` (low_memory, frame_width), `POST /api/performance/cleanup` (target `stale_temporary` = files older than 6 h inside `storage/temporary`, `music_peaks` = waveform cache only). At server start, temporary files older than 24 h are removed. The old Storage Manager "temporary" button still empties the whole folder: use it only when no job is running.
+- Limits: the real timing and peak RAM measurements (Whisper speed, analysis time) are still pending in 12.12. The `base` Whisper model is less accurate than `small`, especially for non-English speech.
+
+### Phase 12.12a Notes: Benchmark and real test checklist
+- `scripts/benchmark.py` (backend must be running, no other jobs): runs Whisper transcript, scene detection and highlight scoring one by one on an uploaded video, measures seconds and the peak RAM of the backend process (sampled every 0.5 s), and appends a table to `PERFORMANCE_REPORT.md`. Options: `--video-id`, `--gemini`, `--gaming`, `--vision`, `--timeout`. Run it with low-memory mode off and on to compare. It redoes the transcript of the chosen video.
+- `REAL_TESTS.md`: manual checklist for 12.3 (gaming highlights), 10.4 (scene detection), 11.5 (audio studio) and the full workflow. Test: `tests/test_phase12_benchmark.py`.
+
+### Phase 12.12b Notes: Live workflow test
+- File: `scripts/real_workflow_test.py` (standard library only; big uploads use curl.exe). The backend must be running (`.\scripts\start-all.ps1`).
+- Run: `.\.venv\Scripts\python.exe scripts\real_workflow_test.py --video-id 1 --music-file "E:\music\song.mp3"`. Without `--video-id` the latest video with picture is used. `--video-file` uploads one first.
+- Options: `--cats a,b,c` (gaming categories), `--platform`, `--confidence` (default 40), `--no-gemini`, `--no-scene-ai`, `--timeout` (seconds per job).
+- Steps: health, Gemini/Whisper status, video, AI analysis, gaming highlights + thumbnail (12.3), extract clips, reel (12.5), music preview + mix (11.5), music suggestions (11.3), captions (12.4), social text (12.7), Scene Detection category + extract (10.4), 22 old GET endpoints (regression), original video untouched (file size before and after).
+- Result: table on screen and appended to `REAL_TEST_RESULT.md`. PASS / WARN / FAIL / SKIP. WARN is acceptable (for example no speech = no captions). Every FAIL must be fixed first.
+- Limits: it checks API results and that files play, not whether the AI chose the right scene: watch the extracted clips yourself. Boxes 12.3, 10.4, 11.5 and 12.12 are ticked only after a run without FAIL.
+
+### Pages added in Phase 10 to 12 (sidebar routes)
+`/scene-detection`, `/gaming-highlights`, `/music`, `/audio-studio`, `/reels`, `/reels-library`, `/captions-studio`, `/social-text`, `/timeline-editor`, `/clips-gallery`, `/batch`, `/performance`, `/gemini-key`, `/about`, `/queue`. A full cleanup of the Sidebar and Project Structure sections comes in 12.13.
+
+- Re-run only some steps: `.\.venv\Scripts\python.exe scripts\real_workflow_test.py --video-id 1 --only reel,music,social --music-file "<your mp3>"` (uses the latest ready clip, or `--clip-id N`).
+
+### Phase 12.12 Known Findings (real tests on video 1, 697 s GTA comparison)
+- Live API run (`scripts\real_workflow_test.py`): analysis, gaming highlights + thumbnails, clip extract, reel (720x1280), music preview + mix (length equals source), music suggestions, social text, Scene Detection + extract, 22 old endpoints, original file untouched: all PASS. Only WARN: no speech, so no captions.
+- Speech: this video is mostly music and game sound. Whisper `base` with VAD on finds no speech (0 segments). With VAD off it returns 27 segments, mostly invented text (repeated words, wrong language guess) and a few real English lines. Decision: keep VAD on. Result: videos without clear speech get no transcript, so no AI Highlights (they need one) and no captions. Test captions on a video with clear commentary and pick the language by hand if auto detect is wrong.
+- 10.4: fixed 1 and 3 minute durations are NOT verified. The test run only found an older extracted scene (231 s), which is kept on purpose; new scenes overlapping it by 50% or more are skipped as duplicates. `scripts\real_scene_cases.py` now removes old scenes of the category first (clips are kept) so the retest is valid.
+- Gemini: one batch failed ("returned no usable unit"). The job still finished with the other batches and the page shows a warning. No crash.
+- Deferred on purpose (heavy for an 8 GB PC at 73-83% RAM): Phase 9 benchmark (`scripts\benchmark.py`), 10.4 retest (`scripts\real_scene_cases.py 1`), captions test with a speaking video, browser check of `/gaming-highlights` and `/clips-gallery`.
+
+## Modules added later in Phase 12
+```text
+backend/
+  captions/        presets.py, preview.py (Captions Studio, 12.4)
+  reels/           cards.py (intro/outro, 12.5b)
+  social/          generator.py                                  (12.7)
+  editor/          timeline.py                                   (12.8a)
+  thumbs/          suggest.py                                    (12.9)
+  services/        performance.py                                (12.11)
+  workers/         timeline_handlers.py, compose_handlers.py, batch_pipeline_handlers.py
+  api/             social.py, timeline.py, compose.py, gemini_key.py, performance.py
+frontend/app/      captions-studio, social-text, timeline-editor, clips-gallery, batch, performance, gemini-key, thumbnails
+scripts/           real_workflow_test.py, real_scene_cases.py, benchmark.py, heavy_tests.ps1
+```
+Reports: `FINAL_REPORT.md` (results and limits), `REAL_TEST_RESULT.md` (raw test tables), `PERFORMANCE_REPORT.md` (after benchmark), `REAL_TESTS.md` (manual checklist).
+
+### Phase 12.12 Update: benchmark and 10.4 retest (2026-11-21)
+- Benchmark (`scripts\benchmark.py --video-id 1`, low-memory off, Gemini off): Whisper base 10.3 s, scene detection 163 s, highlight scoring 4.2 s on a 697 s video. Backend peak RAM 530 MB. PC RAM: lowest free 1.0 GB of 7.8 GB, so close the browser and other apps for long videos. Details in `PERFORMANCE_REPORT.md`.
+- The Whisper time is NOT a real speed: VAD found no speech in this video, so almost nothing was transcribed. Measure Whisper speed with a video that has clear speech. Scene detection is the slowest step (about 4.3 video seconds per work second): a 1 hour video needs roughly 15 minutes.
+- 10.4 retest (old scenes removed first, clips kept): fixed 60 s gave scenes of 34 s and 60 s, fixed 180 s gave 139 s (none longer than the limit), custom category job completed (0 scenes, no helicopter in the video), duplicate guard kept one scene for an already extracted range.
+- Full pytest: 215 passed in 121 s.
+- Still open: captions test with a speaking video, listening check of a clip mixed with real music.
+
+### Autostart (Windows login, Microsoft Edge)
+- Turn on: `.\scripts\install-autostart.ps1` (puts a shortcut in the Windows Startup folder, no admin needed). Turn off: `.\scripts\disable-autostart.ps1`.
+- At login `scripts\autostart.ps1` waits 15 s, starts the backend (port 8000) and frontend (port 3000) hidden, waits up to 3 minutes until both answer, then opens `http://localhost:3000` in Microsoft Edge. If the servers already run, it only opens Edge.
+- Log: `logs\autostart.log` (if nothing opens, read it first). Stop the servers: `.\scripts\stop-all.ps1` (pids are saved in `logs\pids.txt`). Manual start with visible windows: `.\scripts\start-all.ps1` (opens the default browser).
+- Limits: the servers use RAM all the time (8 GB PC: close them with stop-all when you do not need the app). The frontend starts in the mode set in `start-frontend.ps1`.
+
+### Phase 13: One-Click Reel and YouTube publish
+- [x] 13.1 One-Click Reel: chain test done (reel PASS, social text PASS, captions WARN = no speech, music chain pending a real mp3)
+- [-] 13.2 Publish to YouTube: REMOVED by owner (2026-11-21). Files saved in _unused/youtube_publish_removed/
+- [x] 13.3 Tests and README final (full pytest + audit done)
+
+### Phase 13.1 Notes: One-Click Reel
+- Page `/one-click-reel` (sidebar: One-Click Reel), file `frontend/app/one-click-reel/page.tsx`. Frontend only: it calls existing APIs one after another and follows each clip until it is ready.
+- Order: reel (`POST /api/reels-studio/create`) -> captions (`captions/generate`, then `captions/studio-burn` with `{preset}`) -> music (`POST /api/audio-studio/clips/{id}/mix`, video copied) -> social text (`POST /api/social/generate`). Captions run before music so Whisper hears the original sound.
+- Every step gives a NEW clip. A captions error or no speech never stops the rest (a note is shown). Cancel stops the current job.
+- Test: `.\.venv\Scripts\python.exe scripts\test_one_click_chain.py [clip_id] [tone.wav]` runs the same API chain (results in `REAL_TEST_RESULT.md`).
+- Limits: no live preview of the final mix, music comes only from your own library (one track), whole chain needs RAM for Whisper (8 GB PC: close other apps). With a Gemini key the social text step sends text (no frames) to Google.
+
+### Phase 13.2 Notes: Publish to YouTube
+- Files: `backend/publish/youtube.py` (login, token, resumable upload in a background thread, progress, cancel), `backend/api/publish.py`, `frontend/components/YouTubePublish.tsx` (panel under the result on `/one-click-reel`). Tests: `tests/test_phase13_publish.py` (no network), `scripts/test_publish_api.py` (safe API checks, no upload).
+- Setup once: Google Cloud project -> enable YouTube Data API v3 -> OAuth consent screen (add your channel email as a test user) -> OAuth client of type DESKTOP APP -> download the JSON as `storage\settings\youtube_client_secret.json` (never share it; `storage` is git-ignored). A `web` client is refused with a clear message. The token is saved in `storage\settings\youtube_token.json`.
+- Endpoints: `GET /api/publish/youtube/status`, `POST .../connect` (opens the Google login in the browser), `POST .../disconnect`, `POST .../upload` (clip_id, title, description, tags, privacy, confirm, confirm_public), `GET .../uploads`, `GET .../uploads/{id}`, `POST .../uploads/{id}/cancel`.
+- Safety: default privacy is private. Upload needs `confirm: true` (rights to the video and music), public needs `confirm_public` too. One upload at a time. Video is marked "not made for kids", category People and Blogs. `<` and `>` are removed from title and description.
+- Limits: new Google API projects keep videos private until Google audits the project; the panel shows a note when YouTube changed the privacy. Daily quota is about 6 uploads (default 10,000 units, one upload about 1,600). In Testing mode of the consent screen the login token expires after about 7 days: connect again. GTA footage and songs can get copyright claims: upload only content you may use.
+- Page `/publish` (sidebar: Publish to YouTube), file `frontend/app/publish/page.tsx`: choose any ready clip or reel, optionally generate title/description/hashtags (Social Text), then Connect YouTube and Publish (same panel as on `/one-click-reel`).
+
+---
+
+## Current Status (Phase 13 update, newest)
+- Done: Phase 1 to 12 (code + API tests). Full pytest: 215 passed.
+- In progress: Phase 13
+  - [x] 13.1 One-Click Reel: chain test done (reel PASS, social PASS, captions WARN no speech)
+  - [-] 13.2 Publish to YouTube: REMOVED (files in _unused/youtube_publish_removed/)
+  - [x] 13.3 Tests and README final (audit 119 PASS)
+- Pending real checks: browser check of /gaming-highlights and /clips-gallery, captions test with a speaking video, listening check of a clip with real music.
+- Sidebar routes added in Phase 13: /one-click-reel, /publish (also /gemini-key, /clips-gallery, /performance, /batch from Phase 12).
+- Audit: `.\scripts\audit.ps1` (needs backend running). Result in `AUDIT_REPORT.md`.
+
+### Phase 13 backend additions
+```text
+backend/publish/youtube.py      login, token, resumable upload
+backend/api/publish.py          /api/publish/youtube/...
+backend/api/reels_media.py      /api/reels/{id}/stream|thumbnail|clip
+frontend/app/one-click-reel, frontend/app/publish, frontend/components/YouTubePublish.tsx
+scripts/test_one_click_chain.py, scripts/test_publish_api.py, scripts/audit_project.py, scripts/audit.ps1
+```
+
+> NOTE (2026-11-21): The sections 'Phase 13.2 Notes: Publish to YouTube', the Publish buttons and the /publish page described above no longer exist. Use Download and upload by hand.
+
+
+## Final Status (2026-11-21)
+- Done: Phase 1 to 13. Full pytest: 215 passed. Live audit: 119 PASS, 0 FAIL.
+- Real tests done: captions on real speech, real music mix, reel, social text, scene detection, benchmark.
+- Removed by owner: YouTube auto publish (files in _unused/youtube_publish_removed/). Upload clips by hand.
+- Open (manual, by user): browser check of /gaming-highlights (12.3 boxes stay unticked until checked).
+- Known: speech_music_test.py upload step uses the wrong form field (should be `files`), so it falls back to the newest library video.
+
+## FINAL: ALL PHASES COMPLETE (2026-11-21)
+- Open items: none. Optional future ideas (Phase 14): moving face-tracking reframe, drag-and-drop timeline, live music preview.

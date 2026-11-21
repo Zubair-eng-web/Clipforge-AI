@@ -13,7 +13,7 @@ Check "Frontend packages"  (Test-Path "frontend\node_modules") "cd frontend; npm
 Check ".env file"          (Test-Path ".env") "Copy .env.example to .env"
 
 $envText = if (Test-Path ".env") { Get-Content ".env" -Raw } else { "" }
-Check "Gemini API key set" ($envText -match "GEMINI_API_KEY=(?!your_key_here)\S+") ".env file mein key paste karo"
+Check "Gemini API key set (.env or Gemini Key page)" ((Test-Path "storage\settings\gemini_key.json") -or ($envText -match "GEMINI_API_KEY=(?!your_key_here)\S+")) "Gemini API Key page ya .env mein key daalo"
 
 foreach ($port in 8000, 3000) {
   $busy = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue

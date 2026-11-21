@@ -109,7 +109,7 @@ def reel_create(ctx: JobContext) -> None:
             brightness=_num(p.get("brightness"), 0.0), contrast=_num(p.get("contrast"), 1.0),
             saturation=_num(p.get("saturation"), 1.0), music=tracks or None,
             orig_on=bool(p.get("original_audio_on", True)), orig_volume=_num(p.get("original_volume"), 1.0),
-            on_progress=ctx.progress,
+            on_progress=ctx.progress, intro=p.get("intro"), outro=p.get("outro"),
         )
         info = probe(dst)
         thumb_ok = True
@@ -127,7 +127,7 @@ def reel_create(ctx: JobContext) -> None:
             raise RuntimeError("Clip was deleted while exporting")
         _save_reel_row({
             "title": title, "clip_id": new_id, "source_clip_id": src_id, "video_id": video_id,
-            "platform": p.get("platform"), "ratio": p.get("ratio"), "status": "ready",
+            "platform": p.get("platform"), "aspect": p.get("ratio"), "status": "ready",
             "duration_sec": info["duration_sec"] or res["duration"], "width": info["width"],
             "height": info["height"], "file_path": f"edited_clips/{name}.mp4",
             "thumbnail_path": f"thumbnails/{name}.jpg" if thumb_ok else None,
